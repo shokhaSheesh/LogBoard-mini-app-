@@ -125,6 +125,8 @@ export const weekday = (date: string) => WEEKDAYS[day(date).getDay()];
 // the phone's storage, and a new sign-in or company starts clean (both are in the key).
 const FRESH_MS = 30_000;
 const seen = new Map<string, { week: GrossWeek; at: number }>();
+/** Drops the weeks kept here — for a refresh the person asked for. */
+export const forgetGrossWeeks = () => seen.clear();
 const keyOf = (from: string, to: string) => `${getToken()}|${getCompanyId()}|${from}|${to}`;
 function remember(from: string, to: string, week: GrossWeek) {
   const entry = { week, at: Date.now() };

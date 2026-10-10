@@ -16,6 +16,8 @@ import { DriverFormPage } from "./pages/DriverFormPage";
 import { EquipmentPage } from "./pages/EquipmentPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { Toaster } from "./components/ui";
+import { PullToRefresh } from "./components/PullToRefresh";
+import { useRefreshRound } from "./lib/refresh";
 
 export function App() {
   return (
@@ -32,6 +34,7 @@ export function App() {
 function Shell() {
   const { user, loading } = useAuth();
   const { pathname } = useLocation();
+  const round = useRefreshRound();
 
   if (loading) return <div className="screen"><div className="center"><span className="spinner" /></div></div>;
   if (!user) return <SignInPage />;
@@ -41,7 +44,8 @@ function Shell() {
 
   return (
     <div className="screen">
-      <Routes>
+      {/* A refresh starts the screen on show over (see lib/refresh). */}
+      <Routes key={round}>
         {tabs.some((t) => t.path === "/loads") && <>
           <Route path="/loads" element={<LoadsPage />} />
           <Route path="/loads/new" element={<LoadFormPage />} />
@@ -71,6 +75,7 @@ function Shell() {
       {/* A page opened from a tab (a load, a form) takes the whole screen; the bar is for
           moving between the tabs themselves. */}
       {tabs.some((t) => t.path === pathname) && <TabBar tabs={tabs} />}
+      <PullToRefresh />
       <Toaster />
     </div>
   );

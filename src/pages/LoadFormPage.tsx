@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { AlertCircle, Check, ChevronRight, Plus, Search, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { EMPTY_APPT, formatApptParts, parseAppt } from "../lib/appt";
 import { friendlyError } from "../lib/errors";
@@ -12,6 +12,7 @@ import {
 import { suggestAddresses, type PlaceSuggestion } from "../lib/places";
 import { haptic } from "../lib/telegram";
 import { NumberInput, Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
+import { ExtractSheet } from "../components/ExtractSheet";
 
 const RouteMap = lazy(() => import("../components/RouteMap").then((m) => ({ default: m.RouteMap })));
 
@@ -36,7 +37,7 @@ export function LoadFormPage() {
   const [step, setStep]   = useState(0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [sheet, setSheet] = useState<"driver" | "dispatcher" | { stop: number } | null>(null);
+  const [sheet, setSheet] = useState<"driver" | "dispatcher" | "extract" | { stop: number } | null>(null);
 
   useEffect(() => {
     if (isNew) return;
@@ -115,6 +116,14 @@ export function LoadFormPage() {
 
       <div className="page-body">
         {step === 0 && <>
+          {/* A new load can be filled from the broker's rate confirmation instead of by hand. */}
+          {isNew && (
+            <button className="extract-card" onClick={() => { haptic.tap(); setSheet("extract"); }}>
+              <Sparkles size={20} style={{ color: "var(--pine)", flexShrink: 0 }} />
+              <span style={{ minWidth: 0 }}><b>Have a rate confirmation?</b><span className="sub">Snap or upload it and the form fills itself in.</span></span>
+              <ChevronRight size={18} style={{ color: "var(--pine)", marginLeft: "auto", flexShrink: 0 }} />
+            </button>
+          )}
           <div className="flabel">Load ID</div>
           <input className="field" value={form.loadId} onChange={(e) => set({ loadId: e.target.value })} placeholder="58135734" aria-label="Load ID" autoCapitalize="characters" autoCorrect="off" aria-invalid={!!error && !form.loadId.trim()} />
           <div className="flabel">Broker</div>
@@ -185,6 +194,17 @@ export function LoadFormPage() {
           : <button className="btn" disabled={saving} onClick={save}>{saving && <span className="spinner" />}{isNew ? "Create load" : "Save changes"}</button>}
       </div>
 
+      {sheet === "extract" && (
+        <ExtractSheet onClose={() => setSheet(null)}
+          onDraft={(draft) => {
+            // The draft replaces what the document can know; the driver and dispatcher,
+            // which it can't, stay as picked.
+            set(draft);
+            setSheet(null);
+            const lost = draft.stops.filter((x) => x.city.trim() && x.lat == null).length;
+            toast.ok(lost ? `Filled in. ${lost === 1 ? "One stop needs" : `${lost} stops need`} placing on the map.` : "Filled in. Check it before saving.");
+          }} />
+      )}
       {sheet === "driver" && <DriverSheet current={form.driverId} onClose={() => setSheet(null)} onPick={(d) => { set({ driverId: d?.id ?? "", driver: d?.name ?? "" }); setSheet(null); }} />}
       {sheet === "dispatcher" && <DispatcherSheet current={form.dispatcherId} onClose={() => setSheet(null)} onPick={(p) => { set({ dispatcherId: p?.id ?? "", dispatcher: p?.name ?? "" }); setSheet(null); }} />}
       {sheet && typeof sheet === "object" && (

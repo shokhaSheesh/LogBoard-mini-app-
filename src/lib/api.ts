@@ -46,14 +46,27 @@ export function onSessionExpired(fn: Listener): () => void {
   return () => expiredListeners.delete(fn);
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+// How many requests are out right now. Pull-to-refresh watches this to know when the
+// screen it refreshed has finished loading.
+let inFlight = 0;
+const idleWaiters = new Set<() => void>();
+function tracked<T>(work: Promise<T>): Promise<T> {
+  inFlight++;
+  return work.finally(() => { if (--inFlight === 0) { idleWaiters.forEach((fn) => fn()); idleWaiters.clear(); } });
+}
+/** Resolves once nothing is being fetched. */
+export const whenIdle = (): Promise<void> => (inFlight === 0 ? Promise.resolve() : new Promise((done) => idleWaiters.add(done)));
+
+async function request<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
+  // A file goes as a form, and the browser writes that Content-Type itself (it carries the
+  // boundary between the parts).
+  const headers: Record<string, string> = form ? {} : { "Content-Type": "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
   const company = getCompanyId();
   if (company) headers["X-Company-ID"] = company;
 
-  const res = await fetch(`${BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const res = await fetch(`${BASE}${path}`, { method, headers, body: form ?? (body === undefined ? undefined : JSON.stringify(body)) });
   if (res.status === 204) return undefined as T;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -113,12 +126,20 @@ async function blob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+const upload = <T>(path: string, file: File): Promise<T> => {
+  const form = new FormData();
+  form.append("file", file);
+  return request<T>("POST", path, undefined, form);
+};
+
 export const api = {
-  list,
-  blob,
-  get:  <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
-  put:  <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
-  delete: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
+  list:  <T>(path: string, params?: Record<string, string | number | undefined>) => tracked(list<T>(path, params)),
+  blob:  (path: string) => tracked(blob(path)),
+  get:   <T>(path: string) => tracked(request<T>("GET", path)),
+  post:  <T>(path: string, body?: unknown) => tracked(request<T>("POST", path, body)),
+  put:   <T>(path: string, body?: unknown) => tracked(request<T>("PUT", path, body)),
+  patch: <T>(path: string, body?: unknown) => tracked(request<T>("PATCH", path, body)),
+  delete: <T>(path: string, body?: unknown) => tracked(request<T>("DELETE", path, body)),
+  /** Sends one file as a form (field "file"). */
+  upload: <T>(path: string, file: File) => tracked(upload<T>(path, file)),
 };

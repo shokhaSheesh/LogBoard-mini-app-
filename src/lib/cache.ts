@@ -37,3 +37,6 @@ export function forget(prefix: string): void {
   const p = scoped(prefix);
   for (const k of kept.keys()) if (k.startsWith(p)) kept.delete(k);
 }
+
+/** Drops everything kept — for a refresh the person asked for. */
+export function forgetAll(): void { kept.clear(); }
