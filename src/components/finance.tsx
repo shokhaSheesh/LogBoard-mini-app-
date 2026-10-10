@@ -5,11 +5,17 @@ import { PERIODS, periodLabel, type PeriodId } from "../lib/period";
 import { haptic } from "../lib/telegram";
 import { Sheet, SheetRow } from "./ui";
 
-// Pieces the Finance screens share: the week switcher, the block of headline numbers, and
-// the progress bar toward a target.
+// Pieces the Finance and Dashboard screens share: the week switcher, the block of headline
+// numbers, the progress bar toward a target, and the chips that pick a period or a filter.
 
 /** Dollars without cents for headline numbers; the sign survives ("-$50"). */
 export const dollars = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`;
+/** Short money for tight spots: "$48,200", then "$148k", "$1.25M". */
+export function compact(n: number): string {
+  const a = Math.abs(n), sign = n < 0 ? "-" : "";
+  if (a < 100_000) return dollars(n);
+  return a < 1_000_000 ? `${sign}$${Math.round(a / 1000)}k` : `${sign}$${(a / 1_000_000).toFixed(2)}M`;
+}
 export const perMile = (n: number) => `$${n.toFixed(2)}`;
 /** Money to the cent, where cents are the point (a dispatcher's percent of a load). */
 export const cents = (n: number) => `${n < 0 ? "-" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -29,15 +35,16 @@ export function WeekBar({ from, to, onShift, onCurrent, isCurrent }: { from: str
   );
 }
 
-export interface KpiItem { label: string; value: string; bad?: boolean }
+export interface KpiItem { label: string; value: string; bad?: boolean; /** A line under the number, e.g. the change against last week. */ note?: string; noteTone?: "good" | "bad" }
 
-export function Kpis({ items }: { items: KpiItem[] }) {
+export function Kpis({ items, across = 2 }: { items: KpiItem[]; across?: 2 | 3 }) {
   return (
-    <div className="kpis">
+    <div className={`kpis ${across === 3 ? "three" : ""}`}>
       {items.map((k) => (
         <div key={k.label}>
           <small>{k.label}</small>
           <span style={k.bad ? { color: "var(--danger)" } : undefined}>{k.value}</span>
+          {k.note && <em style={{ color: k.noteTone === "bad" ? "var(--danger)" : k.noteTone === "good" ? "var(--pine)" : undefined }}>{k.note}</em>}
         </div>
       ))}
     </div>

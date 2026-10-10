@@ -16,7 +16,7 @@ export const TABS: Tab[] = [
   { path: "/loads",     label: "Loads",     icon: PackageOpen,           modules: ["loads"] },
   { path: "/finance",   label: "Finance",   icon: ChartColumnIncreasing, modules: ["gross", "payouts"] },
   { path: "/dashboard", label: "Dashboard", icon: ChartPie,              modules: ["dashboard"] },
-  { path: "/drivers",   label: "Drivers",   icon: IdCard,                modules: ["drivers", "board"] },
+  { path: "/drivers",   label: "Drivers",   icon: IdCard,                modules: ["drivers"] },
   { path: "/profile",   label: "Profile",   icon: CircleUserRound },
 ];
 

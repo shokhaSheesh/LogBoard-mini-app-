@@ -3,13 +3,18 @@ import { AuthProvider, can, useAuth } from "./lib/auth";
 import { TabBar, TABS } from "./components/TabBar";
 import { SignInPage } from "./pages/SignInPage";
 import { ProfilePage } from "./pages/ProfilePage";
-import { ComingSoon } from "./pages/ComingSoon";
 import { LoadsPage } from "./pages/LoadsPage";
 import { LoadDetailPage } from "./pages/LoadDetailPage";
 import { LoadFormPage } from "./pages/LoadFormPage";
 import { FinancePage } from "./pages/FinancePage";
 import { GrossDriverPage } from "./pages/GrossDriverPage";
 import { KpiDispatcherPage, KpiPage } from "./pages/KpiPages";
+import { DashboardPage } from "./pages/DashboardPage";
+import { DriversPage } from "./pages/DriversPage";
+import { DriverDetailPage } from "./pages/DriverDetailPage";
+import { DriverFormPage } from "./pages/DriverFormPage";
+import { EquipmentPage } from "./pages/EquipmentPage";
+import { InvoicesPage } from "./pages/InvoicesPage";
 import { Toaster } from "./components/ui";
 
 export function App() {
@@ -51,9 +56,16 @@ function Shell() {
             <Route path="/finance/kpi/:id" element={<KpiDispatcherPage />} />
           </>}
         </>}
-        {tabs.some((t) => t.path === "/dashboard") && <Route path="/dashboard" element={<ComingSoon title="Dashboard" />} />}
-        {tabs.some((t) => t.path === "/drivers")   && <Route path="/drivers"   element={<ComingSoon title="Drivers" />} />}
+        {tabs.some((t) => t.path === "/dashboard") && <Route path="/dashboard" element={<DashboardPage />} />}
+        {tabs.some((t) => t.path === "/drivers") && <>
+          <Route path="/drivers" element={<DriversPage />} />
+          <Route path="/drivers/new" element={<DriverFormPage />} />
+          <Route path="/drivers/:id" element={<DriverDetailPage />} />
+          <Route path="/drivers/:id/edit" element={<DriverFormPage />} />
+        </>}
         <Route path="/profile" element={<ProfilePage />} />
+        {can(user, "equipments") && <Route path="/profile/equipment" element={<EquipmentPage />} />}
+        {user.role === "owner" && <Route path="/profile/invoices" element={<InvoicesPage />} />}
         <Route path="*" element={<Navigate to={home} replace />} />
       </Routes>
       {/* A page opened from a tab (a load, a form) takes the whole screen; the bar is for

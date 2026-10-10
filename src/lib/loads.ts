@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { forget, peek, remembered } from "./cache";
 import { formatAppt } from "./appt";
 import { driverDisplayName } from "./driverName";
 import type { Status } from "./statuses";
@@ -92,14 +93,30 @@ const completed = (l: Load): Load => (l.status === "completed" ? { ...l, stops: 
 
 export const PAGE_SIZE = 20;
 
-export async function listLoads(params: { q?: string; status?: string; page: number }): Promise<{ items: Load[]; total: number }> {
-  const { items, total } = await api.list<Raw>("/loads", { q: params.q || undefined, status: params.status || undefined, page: params.page, page_size: PAGE_SIZE });
-  return { items: items.map(toLoad), total };
+const listKey = (p: { q?: string; status?: string; page: number }) => `loads|list|${p.q ?? ""}|${p.status ?? ""}|${p.page}`;
+
+// Lists and single loads are kept for a short while (lib/cache), so opening a load and
+// coming back doesn't ask the server for the list again.
+export function listLoads(params: { q?: string; status?: string; page: number }): Promise<{ items: Load[]; total: number }> {
+  return remembered(listKey(params), async () => {
+    const { items, total } = await api.list<Raw>("/loads", { q: params.q || undefined, status: params.status || undefined, page: params.page, page_size: PAGE_SIZE });
+    return { items: items.map(toLoad), total };
+  });
 }
+/** The list as it was last seen, if it has been — to show at once while it is read again. */
+export const lastLoads = (params: { q?: string; status?: string; page: number }) => peek<{ items: Load[]; total: number }>(listKey(params));
 
-export const getLoad = async (id: string): Promise<Load> => toLoad(await api.get<Raw>(`/loads/${id}`));
+export const getLoad = (id: string): Promise<Load> => remembered(`loads|one|${id}`, async () => toLoad(await api.get<Raw>(`/loads/${id}`)));
 
-export const createLoad = async (l: Load): Promise<Load> => toLoad(await api.post<Raw>("/loads", toBody(completed(l), { create: true })));
+// A change to a load also moves its driver, the payouts, the gross and the dashboard, so
+// everything kept about those is dropped with it.
+function loadsChanged() { for (const k of ["loads|", "drivers|", "payouts|", "kpi|", "dashboard|"]) forget(k); }
+
+export async function createLoad(l: Load): Promise<Load> {
+  const made = toLoad(await api.post<Raw>("/loads", toBody(completed(l), { create: true })));
+  loadsChanged();
+  return made;
+}
 
 // Saving an edit. Changing the driver is a queue move, not a field edit: the server detaches
 // the old driver and slots the load onto the new one, where the slot decides the status. So
@@ -108,10 +125,15 @@ export const createLoad = async (l: Load): Promise<Load> => toLoad(await api.pos
 export async function updateLoad(l: Load, was: Load): Promise<Load> {
   const reassigning = l.driverId !== was.driverId;
   const pickedStatus = l.status !== was.status;
-  return toLoad(await api.put<Raw>(`/loads/${l.id}`, toBody(completed(l), { omitStatus: reassigning && !pickedStatus })));
+  const saved = toLoad(await api.put<Raw>(`/loads/${l.id}`, toBody(completed(l), { omitStatus: reassigning && !pickedStatus })));
+  loadsChanged();
+  return saved;
 }
 
-export const deleteLoad = (id: string) => api.delete(`/loads/${id}`);
+export async function deleteLoad(id: string): Promise<void> {
+  await api.delete(`/loads/${id}`);
+  loadsChanged();
+}
 
 // ─── People to assign ─────────────────────────────────────────────────────────
 

@@ -16,7 +16,7 @@ const HOW = "KPI = load rate × the dispatcher's percent on the day it was compl
 
 function useSummary() {
   const { user, companyId } = useAuth();
-  const [period, setPeriod] = usePeriod();
+  const [period, setPeriod] = usePeriod("payouts");
   const range = periodRange(period, user?.company?.week_start_day ?? 1);
   const [data, setData] = useState<KpiSummary | null>(null);
   const [loading, setLoading] = useState(true);

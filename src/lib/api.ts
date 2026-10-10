@@ -95,8 +95,27 @@ async function list<T>(path: string, params: Record<string, string | number | un
   return { items, total: json.meta?.total ?? items.length, totals: json.totals ?? {} };
 }
 
+// A file the server streams behind the same sign-in as everything else (an invoice PDF).
+// A plain link can't carry the token, so it is fetched here and handed over as a blob.
+async function blob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const company = getCompanyId();
+  if (company) headers["X-Company-ID"] = company;
+  const res = await fetch(`${BASE}${path}`, { headers });
+  if (!res.ok) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const json: any = await res.json().catch(() => ({}));
+    const said = json?.error?.message;
+    throw new ApiError(typeof said === "string" ? said : "", json?.error?.code, res.status);
+  }
+  return res.blob();
+}
+
 export const api = {
   list,
+  blob,
   get:  <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put:  <T>(path: string, body?: unknown) => request<T>("PUT", path, body),

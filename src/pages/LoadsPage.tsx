@@ -3,23 +3,31 @@ import { useNavigate } from "react-router";
 import { Plus, Search } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { friendlyError } from "../lib/errors";
-import { cityState, listLoads, milesText, money, PAGE_SIZE, type Load } from "../lib/loads";
+import { cityState, lastLoads, listLoads, milesText, money, PAGE_SIZE, type Load } from "../lib/loads";
 import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { haptic } from "../lib/telegram";
 import { StatusChip } from "../components/ui";
+
+// The search and filter in force, kept while the app is open: opening a load and coming
+// back lands on the same list, not a reset one.
+const last: { q: string; status: Status | "" } = { q: "", status: "" };
 
 // The Loads tab: search, a status filter, and one card per load — a line from pickup to
 // delivery, with the driver and the rate under it.
 export function LoadsPage() {
   const { user, companyId } = useAuth();
   const navigate = useNavigate();
-  const [typed, setTyped]     = useState("");
-  const [q, setQ]             = useState("");
-  const [status, setStatus]   = useState<Status | "">("");
-  const [loads, setLoads]     = useState<Load[]>([]);
-  const [total, setTotal]     = useState(0);
+  const [typed, setTyped]     = useState(last.q);
+  const [q, setQ]             = useState(last.q);
+  const [status, setStatus]   = useState<Status | "">(last.status);
+  // What this list showed last time, if anything, is on screen at once; the server is
+  // asked again behind it only when that answer has gone stale.
+  const seen = lastLoads({ q: last.q, status: last.status, page: 1 });
+  const [loads, setLoads]     = useState<Load[]>(seen?.items ?? []);
+  const [total, setTotal]     = useState(seen?.total ?? 0);
   const [page, setPage]       = useState(1);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seen);
+  useEffect(() => { last.q = q; last.status = status; }, [q, status]);
   const [error, setError]     = useState("");
 
   // Search waits for a pause in typing.
@@ -73,13 +81,13 @@ export function LoadsPage() {
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}
-        {first && <div className="center"><span className="spinner" /></div>}
-        {!first && !error && loads.length === 0 && (
+        {first && loads.length === 0 && <div className="center"><span className="spinner" /></div>}
+        {!loading && !error && loads.length === 0 && (
           <div className="center">{q || status ? "No loads match." : "No loads yet."}</div>
         )}
 
-        {!first && loads.map((l) => (
-          <button key={l.id} className="card load-card" onClick={() => navigate(`/loads/${l.id}`)}>
+        {loads.map((l) => (
+          <button key={l.id} className="card load-card" style={first ? { opacity: 0.5 } : undefined} onClick={() => navigate(`/loads/${l.id}`)}>
             <div className="row">
               <span className="sub ell">{l.broker ? `${l.broker} - ` : ""}<b style={{ color: "var(--ink)" }}>{l.loadId}</b></span>
               <StatusChip status={l.status} />

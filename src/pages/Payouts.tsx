@@ -23,7 +23,7 @@ export function Payouts() {
 
   const [typed, setTyped] = useState("");
   const [q, setQ] = useState("");
-  const [period, setPeriod] = usePeriod();
+  const [period, setPeriod] = usePeriod("payouts");
   const [dispatcher, setDispatcher] = useState("");
   const [dispatchers, setDispatchers] = useState<DispatcherOption[]>([]);
 

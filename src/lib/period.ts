@@ -30,10 +30,11 @@ export function periodRange(id: PeriodId, weekStartDay: number): { from: string;
   }
 }
 
-// The period is shared by Payouts and the KPI pages opened from it, and is kept while the
-// app is open: KPI opens on what Payouts was showing, and coming back keeps it.
-let chosen: PeriodId = "week";
-export function usePeriod(): [PeriodId, (id: PeriodId) => void] {
-  const [id, setId] = useState<PeriodId>(chosen);
-  return [id, (next) => { chosen = next; setId(next); }];
+// The period in force is kept while the app is open, one per `scope`. Payouts and the KPI
+// pages opened from it share a scope, so KPI opens on what Payouts was showing and coming
+// back keeps it; the Dashboard has its own.
+const chosen = new Map<string, PeriodId>();
+export function usePeriod(scope: string): [PeriodId, (id: PeriodId) => void] {
+  const [id, setId] = useState<PeriodId>(chosen.get(scope) ?? "week");
+  return [id, (next) => { chosen.set(scope, next); setId(next); }];
 }
