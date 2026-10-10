@@ -7,6 +7,9 @@ import { ComingSoon } from "./pages/ComingSoon";
 import { LoadsPage } from "./pages/LoadsPage";
 import { LoadDetailPage } from "./pages/LoadDetailPage";
 import { LoadFormPage } from "./pages/LoadFormPage";
+import { FinancePage } from "./pages/FinancePage";
+import { GrossDriverPage } from "./pages/GrossDriverPage";
+import { KpiDispatcherPage, KpiPage } from "./pages/KpiPages";
 import { Toaster } from "./components/ui";
 
 export function App() {
@@ -40,7 +43,14 @@ function Shell() {
           <Route path="/loads/:id" element={<LoadDetailPage />} />
           <Route path="/loads/:id/edit" element={<LoadFormPage />} />
         </>}
-        {tabs.some((t) => t.path === "/finance")   && <Route path="/finance"   element={<ComingSoon title="Finance" />} />}
+        {tabs.some((t) => t.path === "/finance") && <>
+          <Route path="/finance" element={<FinancePage />} />
+          {can(user, "gross") && <Route path="/finance/gross/:id" element={<GrossDriverPage />} />}
+          {can(user, "payouts") && <>
+            <Route path="/finance/kpi" element={<KpiPage />} />
+            <Route path="/finance/kpi/:id" element={<KpiDispatcherPage />} />
+          </>}
+        </>}
         {tabs.some((t) => t.path === "/dashboard") && <Route path="/dashboard" element={<ComingSoon title="Dashboard" />} />}
         {tabs.some((t) => t.path === "/drivers")   && <Route path="/drivers"   element={<ComingSoon title="Drivers" />} />}
         <Route path="/profile" element={<ProfilePage />} />

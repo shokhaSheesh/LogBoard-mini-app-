@@ -5,7 +5,7 @@ import { STATUS_CONFIG, type Status } from "../lib/statuses";
 import { haptic } from "../lib/telegram";
 
 // The small shared pieces of the mini app: a status chip, a bottom sheet, the top bar of
-// a full-screen page, and a toast.
+// a full-screen page, a number field, and a toast.
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,31 @@ export function TopBar({ title, onBack, right }: { title: string; onBack: () => 
       <div className="ell" style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 600 }}>{title}</div>
       <div style={{ width: 38, display: "flex", justifyContent: "flex-end" }}>{right}</div>
     </div>
+  );
+}
+
+// ─── A number, typed on the phone's number pad ────────────────────────────────
+// A text box rather than the browser's number input: no spinner, no scroll-wheel changes,
+// and a zero shows as an empty box so typing replaces it.
+export function NumberInput({ value, onChange, label, prefix, suffix, whole }: { value: number; onChange: (n: number) => void; label: string; prefix?: string; suffix?: string; whole?: boolean }) {
+  const [text, setText] = useState<string | null>(null); // what is being typed, while focused
+  return (
+    <label className="field" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {prefix && <span style={{ color: "var(--muted)" }}>{prefix}</span>}
+      <input aria-label={label} inputMode={whole ? "numeric" : "decimal"} placeholder="0" autoComplete="off"
+        value={text ?? (value ? value.toLocaleString("en-US", { maximumFractionDigits: whole ? 0 : 2 }) : "")}
+        // Focusing selects what is there, so typing replaces it rather than adding to it.
+        onFocus={(e) => { setText(value ? String(value) : ""); const el = e.target; requestAnimationFrame(() => el.select()); }} onBlur={() => setText(null)}
+        onChange={(e) => {
+          let t = e.target.value.replace(whole ? /[^0-9]/g : /[^0-9.]/g, "");
+          const dot = t.indexOf(".");
+          if (dot !== -1) t = t.slice(0, dot + 1) + t.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+          setText(t);
+          onChange(Number(t) || 0);
+        }}
+        style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "none", fontSize: 16, padding: 0 }} />
+      {suffix && <span style={{ color: "var(--muted)", fontSize: 14 }}>{suffix}</span>}
+    </label>
   );
 }
 

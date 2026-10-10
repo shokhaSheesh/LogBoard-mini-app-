@@ -71,8 +71,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   throw err;
 }
 
-// A list endpoint: rows plus the total across all pages (from the response's `meta`).
-async function list<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<{ items: T[]; total: number }> {
+// A list endpoint: rows plus the total across all pages (from the response's `meta`), and
+// the sums over everything the filters match, for the lists that send them (`totals`).
+async function list<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<{ items: T[]; total: number; totals: Record<string, number> }> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") qs.set(k, String(v));
   const headers: Record<string, string> = {};
@@ -91,7 +92,7 @@ async function list<T>(path: string, params: Record<string, string | number | un
     throw err;
   }
   const items: T[] = Array.isArray(json.data) ? json.data : [];
-  return { items, total: json.meta?.total ?? items.length };
+  return { items, total: json.meta?.total ?? items.length, totals: json.totals ?? {} };
 }
 
 export const api = {
@@ -99,5 +100,6 @@ export const api = {
   get:  <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
   put:  <T>(path: string, body?: unknown) => request<T>("PUT", path, body),
+  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   delete: <T>(path: string, body?: unknown) => request<T>("DELETE", path, body),
 };

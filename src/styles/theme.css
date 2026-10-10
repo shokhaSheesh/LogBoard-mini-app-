@@ -170,3 +170,29 @@ button { cursor: pointer; border: none; background: none; padding: 0; }
 .steps i.on { background: var(--pine); }
 .stop-card { display: grid; grid-template-columns: 22px 1fr auto; gap: 2px 11px; align-items: center; width: 100%; text-align: left; }
 .add-row { height: 44px; border-radius: 12px; border: 1px dashed var(--line); color: var(--pine); font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; }
+
+/* ─── Finance ────────────────────────────────────────────────────────────── */
+/* A two-way switch: Gross / Payouts, Load / Status. */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; padding: 3px; border-radius: 12px; background: var(--fill); flex-shrink: 0; }
+.seg button { height: 34px; border-radius: 9px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14); }
+
+.weekbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0; }
+.weekbar-label { display: flex; flex-direction: column; align-items: center; line-height: 1.25; font-size: 14.5px; }
+.weekbar-label .sub { color: var(--pine); font-weight: 600; font-size: 11.5px; }
+
+/* The headline numbers, two across. */
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.kpis > div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.kpis small { display: block; font-size: 11px; font-weight: 500; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpis span { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+
+.bar { height: 5px; border-radius: 5px; background: var(--fill); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 5px; background: var(--pine); transition: width 0.3s ease; }
+
+/* Rows in one card, each a few lines tall (a driver, a day). */
+.list { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.list > * { display: flex; flex-direction: column; justify-content: center; gap: 5px; width: 100%; min-height: 50px; padding: 10px 13px; text-align: left; }
+.list > * + * { border-top: 1px solid var(--line); }
+.list b { font-size: 14.5px; font-weight: 700; }
+.note { font-size: 12.5px; color: var(--muted); background: var(--fill); border-radius: 12px; padding: 9px 12px; }
