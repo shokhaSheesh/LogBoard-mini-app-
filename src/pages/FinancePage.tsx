@@ -18,25 +18,28 @@ export function FinancePage() {
   const asked: Half = params.get("tab") === "payouts" ? "payouts" : "gross";
   const half = halves.includes(asked) ? asked : halves[0] ?? "gross";
 
+  // The switch stays on screen with whichever half is open, so it is handed to the half to
+  // place at the top of its own pinned controls.
+  const tabs = halves.length > 1 && (
+    <div className="seg" role="tablist">
+      {halves.map((h) => (
+        <button key={h} role="tab" aria-selected={half === h} className={half === h ? "on" : undefined}
+          onClick={() => { haptic.tap(); setParams(h === "payouts" ? { tab: "payouts" } : {}, { replace: true }); }}>{h === "gross" ? "Gross" : "Payouts"}</button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="scroll">
       <h1 className="title">Finance</h1>
-      {halves.length > 1 && (
-        <div className="seg" role="tablist">
-          {halves.map((h) => (
-            <button key={h} role="tab" aria-selected={half === h} className={half === h ? "on" : undefined}
-              onClick={() => { haptic.tap(); setParams(h === "payouts" ? { tab: "payouts" } : {}, { replace: true }); }}>{h === "gross" ? "Gross" : "Payouts"}</button>
-          ))}
-        </div>
-      )}
-      {half === "gross" ? <Gross /> : <Payouts />}
+      {half === "gross" ? <Gross head={tabs} /> : <Payouts head={tabs} />}
     </div>
   );
 }
 
 // Gross, as a list: every driver with the week's total and how far it is toward their
 // target, best first. A driver opens onto their week, day by day.
-function Gross() {
+function Gross({ head }: { head: React.ReactNode }) {
   const navigate = useNavigate();
   const { week, loading, error, query, onCurrent, shift, current } = useGrossWeek();
   const drivers = [...(week?.drivers ?? [])].sort((a, b) => b.total - a.total);
@@ -44,7 +47,10 @@ function Gross() {
 
   return (
     <>
-      <WeekBar from={week?.from ?? ""} to={week?.to ?? ""} onShift={shift} onCurrent={current} isCurrent={onCurrent} />
+      <div className="sticky">
+        {head}
+        <WeekBar from={week?.from ?? ""} to={week?.to ?? ""} onShift={shift} onCurrent={current} isCurrent={onCurrent} />
+      </div>
       {error && <div className="error" role="alert">{error}</div>}
       {loading && !week && <div className="center"><span className="spinner" /></div>}
       {week && !error && (

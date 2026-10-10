@@ -16,7 +16,7 @@ const cash = (n: number) => `${n < 0 ? "-" : ""}${money(Math.abs(n))}`;
 
 // The Payouts half of Finance: completed loads as cards — the net on the right, the rate
 // and anything added or deducted under it. Tapping one adjusts it, for someone allowed to.
-export function Payouts() {
+export function Payouts({ head }: { head?: React.ReactNode }) {
   const { user, companyId } = useAuth();
   const navigate = useNavigate();
   const canAdjust = can(user, "payouts", "update");
@@ -76,16 +76,19 @@ export function Payouts() {
 
   return (
     <>
-      <label className="search">
-        <Search size={17} />
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search driver, load, broker" aria-label="Search payouts" enterKeyHint="search" />
-      </label>
-      <div className="chips">
-        <PeriodChip value={period} onPick={setPeriod} />
-        <PickChip title="Dispatcher" value={dispatcher} on={!!dispatcher}
-          label={dispatchers.find((d) => d.id === dispatcher)?.name ?? "All dispatchers"}
-          options={[{ id: "", label: "All dispatchers" }, ...dispatchers.map((d) => ({ id: d.id, label: d.name }))]}
-          onPick={setDispatcher} />
+      <div className="sticky">
+        {head}
+        <label className="search">
+          <Search size={17} />
+          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search driver, load, broker" aria-label="Search payouts" enterKeyHint="search" />
+        </label>
+        <div className="chips">
+          <PeriodChip value={period} onPick={setPeriod} />
+          <PickChip title="Dispatcher" value={dispatcher} on={!!dispatcher}
+            label={dispatchers.find((d) => d.id === dispatcher)?.name ?? "All dispatchers"}
+            options={[{ id: "", label: "All dispatchers" }, ...dispatchers.map((d) => ({ id: d.id, label: d.name }))]}
+            onPick={setDispatcher} />
+        </div>
       </div>
 
       <div style={{ opacity: loading && rows.length > 0 ? 0.5 : 1, transition: "opacity 0.15s" }}>

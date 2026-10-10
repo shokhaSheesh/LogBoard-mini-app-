@@ -67,19 +67,21 @@ export function DriversPage() {
     <>
       <div className="scroll">
         <h1 className="title">Drivers</h1>
-        <div className="seg" role="tablist">
-          <button role="tab" aria-selected={!team} className={!team ? "on" : undefined} onClick={() => pick(false)}>Solo</button>
-          <button role="tab" aria-selected={team} className={team ? "on" : undefined} onClick={() => pick(true)}>Team</button>
-        </div>
-        <label className="search">
-          <Search size={17} />
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search driver, unit, phone" aria-label="Search drivers" enterKeyHint="search" />
-        </label>
-        <div className="chips" role="group" aria-label="Filter by status">
-          <button className={`chip ${status === "" ? "on" : ""}`} onClick={() => setStatus("")}>All</button>
-          {ALL_STATUSES.map((s) => (
-            <button key={s} className={`chip ${status === s ? "on" : ""}`} onClick={() => { haptic.tap(); setStatus(status === s ? "" : s); }}>{STATUS_CONFIG[s].label}</button>
-          ))}
+        <div className="sticky">
+          <div className="seg" role="tablist">
+            <button role="tab" aria-selected={!team} className={!team ? "on" : undefined} onClick={() => pick(false)}>Solo</button>
+            <button role="tab" aria-selected={team} className={team ? "on" : undefined} onClick={() => pick(true)}>Team</button>
+          </div>
+          <label className="search">
+            <Search size={17} />
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search driver, unit, phone" aria-label="Search drivers" enterKeyHint="search" />
+          </label>
+          <div className="chips" role="group" aria-label="Filter by status">
+            <button className={`chip ${status === "" ? "on" : ""}`} onClick={() => setStatus("")}>All</button>
+            {ALL_STATUSES.map((s) => (
+              <button key={s} className={`chip ${status === s ? "on" : ""}`} onClick={() => { haptic.tap(); setStatus(status === s ? "" : s); }}>{STATUS_CONFIG[s].label}</button>
+            ))}
+          </div>
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}

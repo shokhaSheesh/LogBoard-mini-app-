@@ -124,7 +124,7 @@ export function LoadFormPage() {
               <ChevronRight size={18} style={{ color: "var(--pine)", marginLeft: "auto", flexShrink: 0 }} />
             </button>
           )}
-          <div className="flabel">Load ID</div>
+          <div className="flabel req">Load ID</div>
           <input className="field" value={form.loadId} onChange={(e) => set({ loadId: e.target.value })} placeholder="58135734" aria-label="Load ID" autoCapitalize="characters" autoCorrect="off" aria-invalid={!!error && !form.loadId.trim()} />
           <div className="flabel">Broker</div>
           <input className="field" value={form.broker} onChange={(e) => set({ broker: e.target.value })} placeholder="CRST" aria-label="Broker" autoCorrect="off" />
@@ -301,6 +301,7 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
 
   return (
     <Sheet title={`Stop ${stopLetter(index)} · ${kind}`} onClose={onClose} tall>
+      <div className="flabel req" style={{ marginBottom: 6 }}>Address</div>
       <label className="search" style={{ height: 46, borderColor: error && !text.trim() ? "var(--danger)" : undefined }}>
         <Search size={17} />
         <input value={text} onChange={(e) => { setText(e.target.value); setError(""); }} placeholder="Address or City, ST" aria-label="Address" autoCorrect="off" autoFocus={!text} />

@@ -42,10 +42,13 @@ export function DashboardPage() {
   return (
     <div className="scroll">
       <h1 className="title">Dashboard</h1>
-      <div className="chips">
-        <PeriodChip value={period} onPick={setPeriod} />
-        {data?.from && period !== "all" && <span className="sub" style={{ alignSelf: "center" }}>{fmtDateRange(data.from, data.to)}</span>}
+      <div className="sticky">
+        <div className="chips">
+          <PeriodChip value={period} onPick={setPeriod} />
+          {data?.from && period !== "all" && <span className="sub" style={{ alignSelf: "center" }}>{fmtDateRange(data.from, data.to)}</span>}
+        </div>
       </div>
+
       {error && <div className="error" role="alert">{error}</div>}
       {loading && !data && <div className="center"><span className="spinner" /></div>}
       {data && !error && (

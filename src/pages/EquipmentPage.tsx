@@ -66,14 +66,16 @@ export function EquipmentPage() {
     <div className="screen">
       <TopBar title="Equipment" onBack={() => navigate("/profile")} />
       <div className="page-body" style={{ paddingBottom: 90 }}>
-        <div className="seg" role="tablist">
-          <button role="tab" aria-selected={kind === "trucks"} className={kind === "trucks" ? "on" : undefined} onClick={() => pick("trucks")}>Trucks</button>
-          <button role="tab" aria-selected={kind === "trailers"} className={kind === "trailers" ? "on" : undefined} onClick={() => pick("trailers")}>Trailers</button>
+        <div className="sticky">
+          <div className="seg" role="tablist">
+            <button role="tab" aria-selected={kind === "trucks"} className={kind === "trucks" ? "on" : undefined} onClick={() => pick("trucks")}>Trucks</button>
+            <button role="tab" aria-selected={kind === "trailers"} className={kind === "trailers" ? "on" : undefined} onClick={() => pick("trailers")}>Trailers</button>
+          </div>
+          <label className="search">
+            <Search size={17} />
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={`Search ${kind}`} aria-label={`Search ${kind}`} enterKeyHint="search" />
+          </label>
         </div>
-        <label className="search">
-          <Search size={17} />
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={`Search ${kind}`} aria-label={`Search ${kind}`} enterKeyHint="search" />
-        </label>
 
         {error && <div className="error" role="alert">{error}</div>}
         {first && rows.length === 0 && <div className="center"><span className="spinner" /></div>}
@@ -147,7 +149,7 @@ function UnitSheet({ kind, unit, canSave, canDelete, onClose, onDone }: { kind: 
 
   const field = (key: "unit" | "make" | "model" | "vin", label: string, placeholder: string) => (
     <>
-      <div className="flabel" style={{ margin: "8px 2px 6px" }}>{label}</div>
+      <div className={`flabel ${key === "unit" ? "req" : ""}`} style={{ margin: "8px 2px 6px" }}>{label}</div>
       <input className="field" value={form[key]} onChange={(e) => { set({ [key]: e.target.value }); if (key === "unit") setMissing(false); }} placeholder={placeholder}
         aria-label={label} aria-invalid={key === "unit" && missing} autoComplete="off" disabled={!canSave} autoCapitalize={key === "vin" ? "characters" : "words"} />
     </>

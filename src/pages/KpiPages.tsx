@@ -42,7 +42,7 @@ export function KpiPage() {
     <>
       <TopBar title="Dispatcher KPI" onBack={() => navigate("/finance?tab=payouts")} />
       <div className="page-body">
-        <div className="chips"><PeriodChip value={period} onPick={setPeriod} /></div>
+        <div className="sticky"><div className="chips"><PeriodChip value={period} onPick={setPeriod} /></div></div>
         {error && <div className="error" role="alert">{error}</div>}
         {loading && !data && <div className="center"><span className="spinner" /></div>}
         {data && !error && (
@@ -95,7 +95,7 @@ export function KpiDispatcherPage() {
     <>
       <TopBar title={row?.name ?? "Dispatcher"} onBack={() => navigate("/finance/kpi")} />
       <div className="page-body">
-        <div className="chips"><PeriodChip value={period} onPick={setPeriod} /></div>
+        <div className="sticky"><div className="chips"><PeriodChip value={period} onPick={setPeriod} /></div></div>
         {(error || loadsError) && <div className="error" role="alert">{error || loadsError}</div>}
         {row && (
           <Kpis items={[

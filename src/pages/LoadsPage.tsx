@@ -69,15 +69,17 @@ export function LoadsPage() {
     <>
       <div className="scroll">
         <h1 className="title">Loads</h1>
-        <label className="search">
-          <Search size={17} />
-          <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search load, broker, driver" aria-label="Search loads" enterKeyHint="search" />
-        </label>
-        <div className="chips" role="group" aria-label="Filter by status">
-          <button className={`chip ${status === "" ? "on" : ""}`} onClick={() => setStatus("")}>All</button>
-          {ALL_STATUSES.map((s) => (
-            <button key={s} className={`chip ${status === s ? "on" : ""}`} onClick={() => { haptic.tap(); setStatus(status === s ? "" : s); }}>{STATUS_CONFIG[s].label}</button>
-          ))}
+        <div className="sticky">
+          <label className="search">
+            <Search size={17} />
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search load, broker, driver" aria-label="Search loads" enterKeyHint="search" />
+          </label>
+          <div className="chips" role="group" aria-label="Filter by status">
+            <button className={`chip ${status === "" ? "on" : ""}`} onClick={() => setStatus("")}>All</button>
+            {ALL_STATUSES.map((s) => (
+              <button key={s} className={`chip ${status === s ? "on" : ""}`} onClick={() => { haptic.tap(); setStatus(status === s ? "" : s); }}>{STATUS_CONFIG[s].label}</button>
+            ))}
+          </div>
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}

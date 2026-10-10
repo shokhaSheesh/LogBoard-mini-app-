@@ -92,7 +92,7 @@ export function DriverFormPage() {
 
   const text = (key: "name" | "phone" | "name2" | "phone2", label: string, placeholder: string, phone?: boolean) => (
     <>
-      <div className="flabel">{label}</div>
+      <div className="flabel req">{label}</div>
       <input className="field" value={form[key]} onChange={(e) => { set({ [key]: e.target.value }); setProblems((p) => ({ ...p, [key]: undefined })); }}
         placeholder={placeholder} aria-label={label} aria-invalid={!!problems[key]} autoComplete="off"
         {...(phone ? { type: "tel", inputMode: "tel" as const } : { autoCapitalize: "words" })} />
