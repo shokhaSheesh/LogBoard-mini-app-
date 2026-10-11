@@ -1,9 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Check, Ellipsis, MapPinned, Pencil, Phone, Trash2 } from "lucide-react";
+import { Check, Ellipsis, MapPinned, Pencil, Phone, Send, Trash2 } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { friendlyError } from "../lib/errors";
-import { deleteLoad, fullAddress, getLoad, milesText, money, stopLetter, updateLoad, type Load } from "../lib/loads";
+import { deleteLoad, fullAddress, getLoad, kindAt, milesText, money, postalAddress, stopLetter, updateLoad, type Load } from "../lib/loads";
+import { getSendStatus, sendToDriver, type SendStatus } from "../lib/tgGroup";
+import { fmtDateTime } from "../lib/dates";
 import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { Sheet, SheetRow, StatusChip, statusColors, toast, TopBar } from "../components/ui";
 
@@ -20,6 +22,8 @@ export function LoadDetailPage() {
   const [error, setError] = useState("");
   const [open, setOpen]   = useState<Open>(null);
   const [busy, setBusy]   = useState(false);
+  const [send, setSend]   = useState<SendStatus | null>(null); // can this load go to its driver's group?
+  const [sending, setSending] = useState(false);
 
   const canUpdate = can(user, "loads", "update");
   const canDelete = can(user, "loads", "delete");
@@ -30,6 +34,17 @@ export function LoadDetailPage() {
     getLoad(id).then((l) => { if (!stale) setLoad(l); }).catch((e) => { if (!stale) setError(friendlyError(e, "Couldn't open this load.")); });
     return () => { stale = true; };
   }, [id]);
+
+  // An extra on this page: without it (the bot switched off, no permission) the card is
+  // simply not shown. Asked again when the driver changes, since the group is the driver's.
+  const driverId = load?.driverId ?? "";
+  useEffect(() => {
+    if (!load) return;
+    let stale = false;
+    getSendStatus(load.id).then((s) => { if (!stale) setSend(s); }).catch(() => { if (!stale) setSend(null); });
+    return () => { stale = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load?.id, driverId]);
 
   if (error) return <div className="screen"><TopBar title="Load" onBack={back} /><div className="center"><div className="error">{error}</div></div></div>;
   if (!load) return <div className="screen"><TopBar title="Load" onBack={back} /><div className="center"><span className="spinner" /></div></div>;
@@ -76,6 +91,21 @@ export function LoadDetailPage() {
     return `https://www.google.com/maps/dir/?${p}`;
   };
   const route = mapsUrl();
+
+  const post = async () => {
+    setSending(true);
+    try {
+      const at = await sendToDriver(load.id);
+      toast.ok(send?.sentAt ? "Sent again" : "Sent to the driver's group");
+      setSend((s) => (s ? { ...s, sentAt: at } : s));
+    } catch (e) {
+      toast.error(friendlyError(e, "Couldn't send it. Try again."));
+      // A group the bot was removed from is disconnected by the server; show that.
+      getSendStatus(load.id).then(setSend).catch(() => {});
+    } finally {
+      setSending(false);
+    }
+  };
   const hasMenu = canUpdate || canDelete || !!route;
 
   return (
@@ -102,8 +132,9 @@ export function LoadDetailPage() {
               <div key={i} style={{ display: "contents" }}>
                 <span className={`letter ${s.done ? "done" : ""}`}>{s.done ? <Check size={12} strokeWidth={3} /> : stopLetter(i)}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{fullAddress(s) || "No address"}</div>
-                  <div className="sub">{[s.appt, s.done ? "done" : ""].filter(Boolean).join(" · ") || "No appointment"}</div>
+                  {s.facility && <div className="sub" style={{ fontWeight: 600, color: "var(--ink)" }}>{s.facility}</div>}
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{postalAddress(s) || "No address"}</div>
+                  <div className="sub">{[[s.appt, s.apptTz].filter(Boolean).join(" "), s.ref && `${kindAt(s, i) === "pickup" ? "PU" : "DEL"} # ${s.ref}`, s.done ? "done" : ""].filter(Boolean).join(" · ") || "No appointment"}</div>
                 </div>
               </div>
             ))}
@@ -119,7 +150,30 @@ export function LoadDetailPage() {
           <div><small>Deadhead</small>{milesText(load.deadhead)}</div>
           <div><small>Rate per mile</small>${perMile.toFixed(2)}</div>
           <div><small>Broker</small><span className="ell" style={{ display: "block" }}>{load.broker || "—"}</span></div>
+          {load.refNumber && <div><small>Ref #</small><span className="ell" style={{ display: "block" }}>{load.refNumber}</span></div>}
+          {load.poNumber && <div><small>PO #</small><span className="ell" style={{ display: "block" }}>{load.poNumber}</span></div>}
+          {load.otherNumber && <div><small>Other #</small><span className="ell" style={{ display: "block" }}>{load.otherNumber}</span></div>}
         </div>
+
+        {/* Posting the trip to the driver's Telegram group. What goes is the load as it is
+            stored now, so sending again after an edit sends the edit. */}
+        {send?.hasDriver && (send.connected ? (
+          <div className="card" style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <div className="row">
+              <span style={{ minWidth: 0 }}>
+                <span className="ell" style={{ display: "block", fontSize: 14, fontWeight: 600 }}>{send.groupTitle || "Driver's Telegram group"}</span>
+                <span className="sub">{send.sentAt ? `Sent ${fmtDateTime(send.sentAt)}` : "Not sent yet"}</span>
+              </span>
+              <Send size={18} style={{ color: "var(--muted)", flexShrink: 0 }} />
+            </div>
+            {canUpdate && <button className="btn small" disabled={sending} onClick={post}>{sending ? <span className="spinner" /> : send.sentAt ? "Send again" : "Send to driver"}</button>}
+          </div>
+        ) : (
+          <button className="card" style={{ textAlign: "left", width: "100%" }} onClick={() => navigate(`/drivers/${send.driverId}`)} disabled={!can(user, "drivers")}>
+            <span style={{ display: "block", fontSize: 14, fontWeight: 600 }}>Send this trip to the driver</span>
+            <span className="sub">First add the Brelo bot to the group you share with {load.driver || "the driver"} and type /assign {load.driver || "their name"} there.</span>
+          </button>
+        ))}
       </div>
 
       {(load.driverPhone || canUpdate) && (

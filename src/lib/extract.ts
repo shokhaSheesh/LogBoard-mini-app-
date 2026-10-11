@@ -1,7 +1,7 @@
 import { api } from "./api";
 import { formatAppt } from "./appt";
 import { geocodeCity } from "./geo";
-import { fullAddress, type Load, type Stop } from "./loads";
+import { EMPTY_STOP, fullAddress, type Load, type Stop } from "./loads";
 
 // AI smart extract: a broker's rate confirmation — a photo, a PDF, or its text pasted in —
 // read by the server into a draft load. Nothing is saved by it: the draft fills the New
@@ -18,13 +18,15 @@ export type Draft = Pick<Load, "loadId" | "broker" | "payout" | "miles" | "deadh
 
 function toDraft(d: Raw): Draft {
   const stops: Stop[] = (Array.isArray(d?.stops) ? d.stops : []).map((s: Raw) => ({
-    street: s.street ?? "", city: s.city ?? "", state: s.state ?? "",
+    ...EMPTY_STOP,
+    // The document nearly always prints the place's name and its zip; both are kept.
+    facility: s.facility ?? "", street: s.street ?? "", city: s.city ?? "", state: s.state ?? "", zip: s.zip ?? "",
     // The appointment as printed, in the app's one format; wording that is only a label
     // ("Appointment", "TBD") comes back empty rather than pretending to be a time.
     appt: formatAppt(s.appt), done: false,
   }));
   // The form expects at least a pickup and a delivery to fill in.
-  while (stops.length < 2) stops.push({ street: "", city: "", state: "", appt: "", done: false });
+  while (stops.length < 2) stops.push({ ...EMPTY_STOP });
   return { loadId: d?.load_id ?? "", broker: d?.broker ?? "", payout: d?.payout ?? 0, miles: d?.miles ?? 0, deadhead: d?.deadhead_distance ?? 0, stops };
 }
 

@@ -6,8 +6,8 @@ import { EMPTY_APPT, formatApptParts, parseAppt } from "../lib/appt";
 import { friendlyError } from "../lib/errors";
 import { geocodeCity, routeMiles } from "../lib/geo";
 import {
-  createLoad, EMPTY_LOAD, fullAddress, getLoad, listDispatchers, milesText, money, searchDrivers, stopLetter, updateLoad,
-  type DriverOption, type Load, type PersonOption, type Stop,
+  createLoad, EMPTY_LOAD, EMPTY_STOP, fullAddress, getLoad, kindAt, listDispatchers, milesText, money, postalAddress, searchDrivers, stopLetter, TIME_ZONES, updateLoad,
+  type DriverOption, type Load, type PersonOption, type Stop, type StopKind,
 } from "../lib/loads";
 import { suggestAddresses, type PlaceSuggestion } from "../lib/places";
 import { haptic } from "../lib/telegram";
@@ -130,6 +130,14 @@ export function LoadFormPage() {
           <input className="field" value={form.broker} onChange={(e) => set({ broker: e.target.value })} placeholder="CRST" aria-label="Broker" autoCorrect="off" />
           <div className="flabel">Rate</div>
           <NumberInput label="Rate" prefix="$" value={form.payout} onChange={(payout) => set({ payout })} />
+          {/* The load's other numbers. A driver is asked for these at the gate, and they go
+              into the message sent to the driver's group. */}
+          <div className="flabel">Ref #</div>
+          <input className="field" value={form.refNumber} onChange={(e) => set({ refNumber: e.target.value })} placeholder="Broker's reference" aria-label="Ref number" autoCorrect="off" maxLength={64} />
+          <div className="two">
+            <div><div className="flabel" style={{ marginBottom: 8 }}>PO #</div><input className="field" value={form.poNumber} onChange={(e) => set({ poNumber: e.target.value })} placeholder="Optional" aria-label="PO number" autoCorrect="off" maxLength={64} /></div>
+            <div><div className="flabel" style={{ marginBottom: 8 }}>Other #</div><input className="field" value={form.otherNumber} onChange={(e) => set({ otherNumber: e.target.value })} placeholder="Optional" aria-label="Other number" autoCorrect="off" maxLength={64} /></div>
+          </div>
           <div className="flabel">Driver</div>
           <button className="picker" onClick={() => setSheet("driver")}><span className={form.driver ? "ell" : "ell ph"}>{form.driver || "No driver yet"}</span><ChevronRight size={18} style={{ color: "var(--muted)" }} /></button>
           <div className="flabel">Dispatcher</div>
@@ -144,15 +152,15 @@ export function LoadFormPage() {
             <button key={i} className="card stop-card" onClick={() => setSheet({ stop: i })}>
               <span className={`letter ${located(s) ? "done" : ""}`} style={{ gridRow: "span 2", alignSelf: "start" }}>{stopLetter(i)}</span>
               <span className="ell" style={{ fontSize: 14, fontWeight: 600, color: filled(s) ? undefined : "var(--muted)" }}>
-                {fullAddress(s) || (i === 0 ? "Pickup address" : i === form.stops.length - 1 ? "Delivery address" : "Stop address")}
+                {[s.facility, postalAddress(s)].filter(Boolean).join(" · ") || (i === 0 ? "Pickup address" : i === form.stops.length - 1 ? "Delivery address" : "Stop address")}
               </span>
               <ChevronRight size={18} style={{ color: "var(--muted)", gridRow: "span 2" }} />
               <span className="sub ell" style={{ gridColumn: 2, color: filled(s) && !located(s) ? "#D97706" : undefined }}>
-                {filled(s) && !located(s) ? "Not on the map yet" : s.appt || "No appointment"}
+                {filled(s) && !located(s) ? "Not on the map yet" : [[s.appt, s.apptTz].filter(Boolean).join(" "), s.ref && `${kindAt(s, i) === "pickup" ? "PU" : "DEL"} # ${s.ref}`].filter(Boolean).join(" · ") || "No appointment"}
               </span>
             </button>
           ))}
-          <button className="add-row" onClick={() => { const at = form.stops.length - 1; set({ stops: [...form.stops.slice(0, at), { street: "", city: "", state: "", appt: "", done: false }, ...form.stops.slice(at)] }); setSheet({ stop: at }); }}>
+          <button className="add-row" onClick={() => { const at = form.stops.length - 1; set({ stops: [...form.stops.slice(0, at), { ...EMPTY_STOP }, ...form.stops.slice(at)] }); setSheet({ stop: at }); }}>
             <Plus size={17} /> Add a stop
           </button>
           <div className="two">
@@ -172,7 +180,11 @@ export function LoadFormPage() {
               {form.stops.filter(filled).map((s, i) => (
                 <div key={i} style={{ display: "contents" }}>
                   <span className="letter">{stopLetter(i)}</span>
-                  <div style={{ minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 600 }}>{fullAddress(s)}</div><div className="sub">{s.appt || "No appointment"}</div></div>
+                  <div style={{ minWidth: 0 }}>
+                    {s.facility && <div className="sub" style={{ fontWeight: 600, color: "var(--ink)" }}>{s.facility}</div>}
+                    <div style={{ fontSize: 14, fontWeight: 600 }}>{postalAddress(s)}</div>
+                    <div className="sub">{[[s.appt, s.apptTz].filter(Boolean).join(" ") || "No appointment", s.ref && `${kindAt(s, i) === "pickup" ? "PU" : "DEL"} # ${s.ref}`].filter(Boolean).join(" · ")}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -250,11 +262,18 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
   const [list, setList]       = useState<PlaceSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [appt, setAppt]       = useState(() => readAppt(stop.appt));
+  const [facility, setFacility] = useState(stop.facility);
+  const [zip, setZip]         = useState(stop.zip);
+  const [ref, setRef]         = useState(stop.ref);
+  const [tz, setTz]           = useState(stop.apptTz);
+  // Pickup or delivery. It starts as the stop's place in the route says and is only stored
+  // when it says something different — so moving a stop doesn't leave a stale choice behind.
+  const [kind, setKind]       = useState<StopKind>(kindAt(stop, index));
   const [busy, setBusy]       = useState(false);
   const [error, setError]     = useState("");
   const seq = useRef(0);
 
-  const kind = index === 0 ? "Pickup" : index === count - 1 ? "Delivery" : "Stop";
+  const where = index === 0 ? "Pickup" : index === count - 1 ? "Delivery" : "Stop";
 
   // Suggestions follow the typing, after a short pause; only the latest answer is shown.
   useEffect(() => {
@@ -279,6 +298,8 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
     if (!place) return;
     const next = { ...picked, street: place.street, city: place.city, state: place.state, lat: place.lat, lng: place.lng };
     setPicked(next);
+    // A picked address knows its zip; a bare city doesn't, and what was typed is kept.
+    if (place.zip) setZip(place.zip);
     const line = fullAddress(next);
     setText(line); setPickedText(line);
   };
@@ -296,12 +317,22 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
       out = { ...picked, ...splitAddress(typed), lat: at.lat, lng: at.lng };
     }
     if (appt.from && appt.to && appt.to < appt.from) { setError("The time window ends before it starts."); return; }
-    onSave({ ...out, appt: writeAppt(appt) });
+    onSave({
+      ...out, facility: facility.trim(), zip: zip.trim(), ref: ref.trim(), apptTz: tz, appt: writeAppt(appt),
+      kind: kind === kindAt({ kind: "" }, index) ? "" : kind,
+    });
   };
 
   return (
-    <Sheet title={`Stop ${stopLetter(index)} · ${kind}`} onClose={onClose} tall>
-      <div className="flabel req" style={{ marginBottom: 6 }}>Address</div>
+    <Sheet title={`Stop ${stopLetter(index)} · ${where}`} onClose={onClose} tall>
+      {/* In the order a stop is read: what it is, where it is, when, and its number. */}
+      <div className="seg" role="tablist" aria-label="Stop type">
+        <button role="tab" aria-selected={kind === "pickup"} className={kind === "pickup" ? "on" : undefined} onClick={() => setKind("pickup")}>Pickup</button>
+        <button role="tab" aria-selected={kind === "delivery"} className={kind === "delivery" ? "on" : undefined} onClick={() => setKind("delivery")}>Delivery</button>
+      </div>
+      <div className="flabel" style={{ margin: "10px 2px 6px" }}>Stop name</div>
+      <input className="field" value={facility} onChange={(e) => setFacility(e.target.value)} placeholder="e.g. Kroger Distribution Center" aria-label="Stop name" autoCorrect="off" maxLength={120} />
+      <div className="flabel req" style={{ margin: "10px 2px 6px" }}>Address</div>
       <label className="search" style={{ height: 46, borderColor: error && !text.trim() ? "var(--danger)" : undefined }}>
         <Search size={17} />
         <input value={text} onChange={(e) => { setText(e.target.value); setError(""); }} placeholder="Address or City, ST" aria-label="Address" autoCorrect="off" autoFocus={!text} />
@@ -316,6 +347,10 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
         </div>
       )}
 
+
+      <div className="flabel" style={{ margin: "10px 2px 6px" }}>Zip</div>
+      <input className="field" value={zip} onChange={(e) => setZip(e.target.value.replace(/[^0-9-]/g, "").slice(0, 10))} placeholder="00000" aria-label="Zip" inputMode="numeric" autoComplete="off" />
+
       <div className="flabel" style={{ marginTop: 12 }}>Appointment</div>
       {appt.note ? (
         <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
@@ -329,6 +364,15 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
           <div><div className="sub" style={{ margin: "0 2px 4px" }}>To (optional)</div><input className="field" type="time" value={appt.to} onChange={(e) => setAppt({ ...appt, to: e.target.value })} aria-label="To" /></div>
         </div>
       </>}
+
+      {/* Whose clock the appointment is on. Tapping the one in force clears it. */}
+      <div className="flabel" style={{ margin: "10px 2px 6px" }}>Time zone</div>
+      <div className="chips" role="group" aria-label="Appointment time zone">
+        {TIME_ZONES.map((z) => <button key={z} className={`chip ${tz === z ? "on" : ""}`} aria-pressed={tz === z} onClick={() => setTz(tz === z ? "" : z)}>{z}</button>)}
+      </div>
+
+      <div className="flabel" style={{ margin: "10px 2px 6px" }}>{kind === "pickup" ? "PU #" : "DEL #"}</div>
+      <input className="field" value={ref} onChange={(e) => setRef(e.target.value)} placeholder="Optional" aria-label={kind === "pickup" ? "Pickup number" : "Delivery number"} autoCorrect="off" maxLength={64} />
 
       {error && <div className="error" role="alert" style={{ marginTop: 10 }}>{error}</div>}
       <div style={{ flex: 1, minHeight: 12 }} />

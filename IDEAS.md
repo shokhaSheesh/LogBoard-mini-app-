@@ -4,51 +4,39 @@ Things to add to the Brelo mini app, in rough order. Move an item to "Done" when
 
 ## Next
 
-1. **Send load details to the driver.** A Share button on a load that opens Telegram's own
-   share sheet with the pickup, delivery, times and addresses as text. Needs no bot
-   messaging. Small.
-2. **Rate con on the load.** Attach the document (photo or PDF) to a load and view it later
+1. **Rate con on the load.** Attach the document (photo or PDF) to a load and view it later
    from the load's page. Needs a place to store the file on the backend first. Medium.
-3. **Change password in the app.** A user on a temporary password has no way to change it
+2. **Change password in the app.** A user on a temporary password has no way to change it
    from the phone today. Small.
-4. **Billing: renew or change plan** from the plan card on Profile. Only worth it if owners
+3. **Billing: renew or change plan** from the plan card on Profile. Only worth it if owners
    pay from their phone. Larger.
 
-## Telegram bot (planned, to start 11.10.26)
+## Telegram bot
 
-The bot becomes a second way into Brelo, not only the door to the mini app. Three features,
-in the order to build them. All three sit on one shared base: the bot receiving messages,
-knowing which Brelo user is talking (through the existing Telegram link), checking that
-user's permissions, and recording "changed via Telegram by X".
+How the bot works, decided 11.10.26: **what is done with the bot is done in Telegram**, by
+typing in the group, not from buttons on the platform. The apps show the result.
 
-1. **Rate con to the bot.** Send the bot a rate confirmation (PDF, photo or text) and it
-   reads it with the existing AI extract. It does not save the load itself: it replies with
-   what it read (broker, rate, route) and an "Open to review" button that opens the mini
-   app form already filled in. Reason: the AI can misplace a stop or miss a time, and it
-   can never know the driver. Small, and it proves the shared base.
-2. **Commands in the driver's group.** The bot is added to the group with a driver, and
-   short messages change the load: `#13131 completed`, a stop marked done, a status change.
-   The most valuable of the three. Design points so far:
-   - Only people whose Telegram is linked to a Brelo account that may update loads.
-   - "Completed" writes the payout, so the bot asks first (Confirm / Cancel buttons).
-     Lighter changes apply at once and offer Undo.
-   - Tie each group to its driver once, so "picked up" / "delivered" work without the
-     load number.
-3. **Voice messages.** Speech turned into text and fed to the same commands as (2), so it
-   comes after (2). Start read-only ("where is Roberto?"). A change asked for by voice
-   always shows what was understood and waits for a tap: a misheard digit costs money.
+The bot recognises whoever has signed in to the mini app (that ties a Telegram account to a
+Brelo user). Drivers are not Brelo users, so the bot does not take commands from them.
 
-Needs: `GEMINI_API_KEY` live on Render (1 and 3); the bot's privacy setting changed in
-@BotFather so it can read group messages (2); a paid speech-to-text service (3).
+Live:
+- `/assign <driver name>` in a group connects it to that driver; `/assign` alone asks for
+  the name. `/unassign` disconnects. One group per driver.
+- Send to driver, from a load in the apps, posts the trip to that group.
 
-Open questions, to settle before building:
-- May drivers mark their own stops in the group, or dispatchers only? Drivers are not
-  Brelo users today.
-- One group per driver, or can a group hold several drivers?
-- The exact words the bot understands, and what it replies (a command list for 2).
+Next, in this order:
+1. **More commands in the driver's group.** Change the load from the group: a status
+   (`#13131 completed`), a stop marked done ("picked up", "delivered"). "Completed" writes
+   the payout, so the bot asks first (Confirm / Cancel); lighter changes apply at once and
+   offer Undo. The bot stays silent on anything it doesn't understand.
+2. **Voice messages.** Speech turned into text and fed to the same commands, so it comes
+   after (1). Start read-only ("where is Roberto?"). A change asked for by voice always
+   shows what was understood and waits for a tap: a misheard digit costs money. Needs
+   `GEMINI_API_KEY` on Render and a paid speech-to-text service.
+
+Open questions for (1):
+- The exact words the bot understands, and what it replies.
 - Which statuses may be set from a group, and which need a confirm besides Completed.
-- What the bot does with a message it doesn't understand: stay silent, or say so.
-- For 1: private chat with the bot only, or also in groups?
 
 ## Smaller gaps against the web
 
@@ -59,6 +47,10 @@ Open questions, to settle before building:
 ## Decided against
 
 - The full Board inside the Drivers tab.
+- Rate con sent to the bot (decided 11.10.26). It was built and removed before shipping:
+  the bot could only reply with a button into the mini app, where the form has to be
+  checked and saved anyway, and the mini app's own "Have a rate confirmation?" already
+  does the reading there. No benefit for an extra step.
 - Notifications pushed by the bot on its own (reminders, alerts). The bot replying to
   something a person sent it is different, and is planned above.
 
@@ -66,3 +58,6 @@ Open questions, to settle before building:
 
 - AI smart extract: fill a new load from a rate confirmation (photo, file or pasted text).
 - Pull down to refresh.
+- Send a load to the driver's Telegram group: add the bot to the group and type /assign with
+  the driver's name there, then Send to driver on the load (web and mini app). Loads gained Ref #, PO #, Other #, and per
+  stop a name, zip, PU/DEL #, pickup/delivery and appointment time zone.

@@ -10,11 +10,31 @@ import type { Status } from "./statuses";
 // An address is three fields (street, city, state); the API joins them wherever it shows
 // one line. `lat`/`lng` are the stop's point on the map — a stop without them hasn't been
 // located, and the form won't save it.
+export type StopKind = "pickup" | "delivery";
+// West to east, then the two outside the lower 48. They name the zone, not the season:
+// "CT" is right all year, where CST and CDT each cover half of it.
+export const TIME_ZONES = ["PT", "MT", "CT", "ET", "AKT", "HT"] as const;
+
+/** A stop with nothing in it yet. */
+export const EMPTY_STOP: Stop = { facility: "", street: "", city: "", state: "", zip: "", appt: "", apptTz: "", ref: "", kind: "", done: false };
+
+/** What a stop is: what was chosen for it, otherwise its place in the route decides. */
+export const kindAt = (s: Pick<Stop, "kind">, position: number): StopKind => s.kind || (position === 0 ? "pickup" : "delivery");
+
 export interface Stop {
+  /** The name of the place — what the sign over the gate says. */
+  facility: string;
   street: string;
   city: string;
   state: string;
+  zip: string;
   appt: string;   // "16.07.26 · 08:00-14:00", or free wording ("FCFS")
+  /** Whose clock the appointment is on: "ET", "CT", "MT", "PT", "AKT", "HT", or "" when unsaid. */
+  apptTz: string;
+  /** The number the driver is asked for here: the PU # at a pickup, the DEL # at a delivery. */
+  ref: string;
+  /** "" means by position: the first stop is the pickup, every later one a delivery. */
+  kind: StopKind | "";
   done: boolean;
   lat?: number;
   lng?: number;
@@ -26,6 +46,10 @@ export interface Load {
   broker: string;
   status: Status;
   stops: Stop[];
+  /** The load's other numbers besides its ID: the broker's reference, the PO, and one more. */
+  refNumber: string;
+  poNumber: string;
+  otherNumber: string;
   payout: number;        // the rate, in dollars
   miles: number;         // loaded miles
   deadhead: number;      // empty miles to the pickup
@@ -48,10 +72,12 @@ export function toLoad(b: Raw): Load {
     broker: b.broker ?? "",
     status: b.status as Status,
     stops: (b.stops ?? []).map((s: Raw): Stop => ({
-      street: s.street ?? "", city: s.city ?? "", state: s.state ?? "",
-      appt: formatAppt(s.appt), done: !!s.done,
+      facility: s.facility ?? "", street: s.street ?? "", city: s.city ?? "", state: s.state ?? "", zip: s.zip ?? "",
+      appt: formatAppt(s.appt), apptTz: s.appt_tz ?? "", ref: s.ref ?? "",
+      kind: s.kind === "pickup" || s.kind === "delivery" ? s.kind : "", done: !!s.done,
       lat: s.location?.lat ?? s.lat, lng: s.location?.lng ?? s.lng,
     })),
+    refNumber: b.ref_number ?? "", poNumber: b.po_number ?? "", otherNumber: b.other_number ?? "",
     payout: b.payout ?? 0,
     miles: b.miles ?? 0,
     deadhead: b.deadhead_distance ?? 0,
@@ -65,7 +91,8 @@ export function toLoad(b: Raw): Load {
   };
 }
 
-// The write body. PUT /loads/:id replaces the whole load, so every field goes back.
+// The write body. PUT /loads/:id replaces the whole load, stops included, so every field
+// goes back — one left out here is one erased on the server.
 function toBody(l: Load, opts: { create?: boolean; omitStatus?: boolean } = {}) {
   return {
     load_id: l.loadId.trim(),
@@ -78,11 +105,13 @@ function toBody(l: Load, opts: { create?: boolean; omitStatus?: boolean } = {}) 
     // make the API coerce it to a real one and wrongly activate the load. So an empty
     // status is left out, and omitStatus drops it altogether (see saveLoad).
     status: opts.omitStatus ? undefined : (l.status || undefined),
+    ref_number: l.refNumber.trim(), po_number: l.poNumber.trim(), other_number: l.otherNumber.trim(),
     payout: l.payout || 0,
     miles: l.miles || 0,
     deadhead_distance: l.deadhead || 0,
     stops: l.stops.map((s) => ({
-      street: s.street.trim(), city: s.city.trim(), state: s.state.trim(), appt: s.appt, done: s.done,
+      facility: s.facility.trim(), street: s.street.trim(), city: s.city.trim(), state: s.state.trim(), zip: s.zip.trim(),
+      appt: s.appt, appt_tz: s.apptTz, ref: s.ref.trim(), kind: s.kind, done: s.done,
       ...(s.lat != null && s.lng != null ? { location: { lat: s.lat, lng: s.lng } } : {}),
     })),
   };
@@ -154,9 +183,13 @@ export async function listDispatchers(): Promise<PersonOption[]> {
 
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
-/** "4750 W Mohave St, Phoenix, AZ" — the whole address on one line. */
+/** "4750 W Mohave St, Phoenix, AZ" — the address on one line, as it is searched and matched. */
 export const fullAddress = (s: { street?: string; city?: string; state?: string }) =>
   [s.street, s.city, s.state].map((p) => (p ?? "").trim()).filter(Boolean).join(", ");
+
+/** The same with the zip, for reading: "4750 W Mohave St, Phoenix, AZ 85043". */
+export const postalAddress = (s: { street?: string; city?: string; state?: string; zip?: string }) =>
+  [s.street, s.city, [s.state, s.zip].map((p) => (p ?? "").trim()).filter(Boolean).join(" ")].map((p) => (p ?? "").trim()).filter(Boolean).join(", ");
 
 /** "Phoenix, AZ" — what a list shows. */
 export const cityState = (s: { city?: string; state?: string }) =>
@@ -169,7 +202,7 @@ export const stopLetter = (i: number) => String.fromCharCode(65 + i);
 
 export const EMPTY_LOAD: Load = {
   id: "", loadId: "", broker: "", status: "" as Status, stops: [
-    { street: "", city: "", state: "", appt: "", done: false },
-    { street: "", city: "", state: "", appt: "", done: false },
-  ], payout: 0, miles: 0, deadhead: 0, driverId: "", driver: "", driverPhone: "", dispatcherId: "", dispatcher: "", truckUnit: "", trailerUnit: "",
+    { ...EMPTY_STOP },
+    { ...EMPTY_STOP },
+  ], refNumber: "", poNumber: "", otherNumber: "", payout: 0, miles: 0, deadhead: 0, driverId: "", driver: "", driverPhone: "", dispatcherId: "", dispatcher: "", truckUnit: "", trailerUnit: "",
 };

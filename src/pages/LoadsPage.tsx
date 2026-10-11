@@ -103,7 +103,7 @@ export function LoadsPage() {
                     <div key={i} style={{ display: "contents" }}>
                       <i className={last ? "end" : i > 0 ? "mid" : undefined} />
                       <b className="ell" style={s.done ? { color: "var(--muted)", textDecoration: "line-through" } : undefined}>{cityState(s) || "No address"}</b>
-                      <span>{s.appt}</span>
+                      <span>{[s.appt, s.apptTz].filter(Boolean).join(" ")}</span>
                     </div>
                   );
                 })}

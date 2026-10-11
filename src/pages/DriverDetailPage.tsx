@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ChevronRight, Ellipsis, MapPin, Pencil, Phone, Trash2 } from "lucide-react";
+import { ChevronRight, Ellipsis, MapPin, Pencil, Phone, Send, Trash2 } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { fmtDate } from "../lib/dates";
 import { deleteDriver, describePay, displayName, driversChanged, driverWeek, getDriver, updateDriver, type Driver, type DriverWeek } from "../lib/drivers";
@@ -10,6 +10,7 @@ import { getLoad, money, updateLoad } from "../lib/loads";
 import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { Bar, dollars, Kpis, percentOf, perMile, WeekBar } from "../components/finance";
 import { Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
+import { disconnectDriverGroup, getDriverGroup, type GroupConnection } from "../lib/tgGroup";
 
 type Open = null | "menu" | "status" | "delete" | { uncomplete: Status };
 
@@ -146,6 +147,8 @@ export function DriverDetailPage() {
           </>
         )}
 
+        <TelegramGroup driverId={driver.id} driverName={displayName(driver)} canChange={canUpdate} />
+
         <Week driverId={driver.id} />
       </div>
 
@@ -185,6 +188,73 @@ export function DriverDetailPage() {
         </Sheet>
       )}
     </div>
+  );
+}
+
+// ─── The driver's Telegram group ──────────────────────────────────────────────
+
+// Which group this driver's trips are posted to. Connecting one is done in Telegram, in the
+// group itself — the bot is added there and someone types /assign with the driver's name —
+// so this card shows what is connected and says how to connect. It asks the server again
+// whenever the app is returned to, since Telegram is where the person has just been.
+function TelegramGroup({ driverId, driverName, canChange }: { driverId: string; driverName: string; canChange: boolean }) {
+  const [group, setGroup] = useState<GroupConnection | null>(null);
+  const [busy, setBusy]   = useState(false);
+  const [asking, setAsking] = useState(false); // "disconnect?" is open
+
+  useEffect(() => {
+    let stale = false;
+    const read = () => getDriverGroup(driverId).then((g) => { if (!stale) setGroup(g); }).catch(() => { if (!stale) setGroup(null); });
+    void read();
+    const back = () => { if (document.visibilityState === "visible") void read(); };
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    return () => { stale = true; document.removeEventListener("visibilitychange", back); window.removeEventListener("focus", back); };
+  }, [driverId]);
+
+  // No answer at all: the bot isn't switched on, or this role can't see drivers' groups.
+  if (!group) return null;
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      await disconnectDriverGroup(driverId);
+      setGroup({ connected: false, title: "", linkedAt: "" });
+      toast.ok("Group disconnected");
+    } catch (e) {
+      toast.error(friendlyError(e, "Couldn't disconnect the group."));
+    } finally {
+      setBusy(false); setAsking(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="label">Telegram group</div>
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        <div className="row">
+          <span style={{ minWidth: 0 }}>
+            <span className="ell" style={{ display: "block", fontSize: 14, fontWeight: 600 }}>{group.connected ? group.title || "Connected" : "Not connected"}</span>
+            {group.connected && <span className="sub">Trips are posted here · since {fmtDate(group.linkedAt)}</span>}
+          </span>
+          <Send size={18} style={{ color: group.connected ? "var(--pine)" : "var(--muted)", flexShrink: 0 }} />
+        </div>
+        {!group.connected && (
+          <div className="sub" style={{ fontSize: 12.5 }}>
+            To connect: add the Brelo bot to the group you share with this driver, then type <b style={{ color: "var(--ink)", fontWeight: 600 }}>/assign {driverName}</b> there.
+          </div>
+        )}
+        {canChange && group.connected && <button className="btn ghost small" disabled={busy} onClick={() => setAsking(true)}>Disconnect</button>}
+      </div>
+
+      {asking && (
+        <Sheet title="Disconnect this group?" onClose={() => !busy && setAsking(false)}>
+          <div className="sub" style={{ fontSize: 14, marginBottom: 10 }}>Trips for {driverName} will no longer be posted to {group.title || "the group"}. The bot stays in the chat; type /assign there to connect it again.</div>
+          <button className="btn danger" disabled={busy} onClick={disconnect}>{busy && <span className="spinner" />}Disconnect</button>
+          <button className="btn ghost" style={{ marginTop: 8 }} disabled={busy} onClick={() => setAsking(false)}>Keep it</button>
+        </Sheet>
+      )}
+    </>
   );
 }
 

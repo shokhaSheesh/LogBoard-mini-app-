@@ -18,6 +18,7 @@ export interface PlaceAddress {
   street: string;
   city: string;
   state: string;   // two-letter code
+  zip: string;     // "" when the place has none (a bare city)
   lat: number;
   lng: number;
 }
@@ -136,5 +137,5 @@ function toAddress(place: any): PlaceAddress | null {
   const isCity = (place.types ?? []).some((t: string) => t === "locality" || t === "postal_code" || t.startsWith("administrative_area"));
   const street = [number, road].filter(Boolean).join(" ") || (isCity ? "" : (place.displayName ?? ""));
 
-  return { street: street === city ? "" : street, city, state, lat: at.lat(), lng: at.lng() };
+  return { street: street === city ? "" : street, city, state, zip: part("postal_code"), lat: at.lat(), lng: at.lng() };
 }
