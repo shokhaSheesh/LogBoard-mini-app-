@@ -23,20 +23,18 @@ Live:
 - `/assign <driver name>` in a group connects it to that driver; `/assign` alone asks for
   the name. `/unassign` disconnects. One group per driver.
 - Send to driver, from a load in the apps, posts the trip to that group.
+- `/status` in the group changes the status of the driver's current load, or of the driver
+  when they have none: `/status 123 enroute`, `/status enroute`, `/status HOME`, or
+  `/status` alone to pick from a keyboard only the sender sees. Works as a reply to a trip
+  message too. Only the current load can be changed; a queued one is refused. No
+  confirmation, Completed included.
 
-Next, in this order:
-1. **More commands in the driver's group.** Change the load from the group: a status
-   (`#13131 completed`), a stop marked done ("picked up", "delivered"). "Completed" writes
-   the payout, so the bot asks first (Confirm / Cancel); lighter changes apply at once and
-   offer Undo. The bot stays silent on anything it doesn't understand.
-2. **Voice messages.** Speech turned into text and fed to the same commands, so it comes
-   after (1). Start read-only ("where is Roberto?"). A change asked for by voice always
-   shows what was understood and waits for a tap: a misheard digit costs money. Needs
-   `GEMINI_API_KEY` on Render and a paid speech-to-text service.
-
-Open questions for (1):
-- The exact words the bot understands, and what it replies.
-- Which statuses may be set from a group, and which need a confirm besides Completed.
+Next:
+1. **Mark a stop done from the group** ("picked up", "delivered").
+2. **Voice messages.** Speech turned into text and fed to the same commands. Start
+   read-only ("where is Roberto?"). A change asked for by voice always shows what was
+   understood and waits for a tap: a misheard digit costs money. Needs `GEMINI_API_KEY` on
+   Render and a paid speech-to-text service.
 
 ## Smaller gaps against the web
 
