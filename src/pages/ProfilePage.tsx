@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
-import { Building2, Check, ChevronRight, LogOut, ReceiptText, Send, Truck } from "lucide-react";
+import { Building2, Check, ChevronRight, LogOut, Moon, ReceiptText, Send, Sun, Truck } from "lucide-react";
 import { can, useAuth, type Company } from "../lib/auth";
 import { getBilling, getFleetCounts, listInvoices, type Billing } from "../lib/billing";
 import { fmtDate } from "../lib/dates";
 import { friendlyError } from "../lib/errors";
-import { haptic, inTelegram } from "../lib/telegram";
+import { currentScheme, haptic, inTelegram, onScheme, setScheme } from "../lib/telegram";
 import { SlideToConfirm } from "../components/SlideToConfirm";
 import { Sheet, toast } from "../components/ui";
 
@@ -23,6 +23,8 @@ export function ProfilePage() {
   const [billing, setBilling]     = useState<Billing | null>(null);
   const [fleet, setFleet]         = useState<{ trucks: number; trailers: number } | null>(null);
   const [invoices, setInvoices]   = useState<number | null>(null);
+
+  const scheme = useSyncExternalStore(onScheme, currentScheme);
 
   const isOwner = user?.role === "owner";
   const seesFleet = can(user, "equipments");
@@ -114,6 +116,18 @@ export function ProfilePage() {
             <span className="pvalue" style={linked ? { color: "var(--pine)", fontWeight: 600 } : undefined}>{linked ? "On" : "Off"}</span>
           </div>
         )}
+      </div>
+
+      {/* Light or dark, one tap, remembered on this phone. */}
+      <div className="label">Appearance</div>
+      <div className="seg" role="group" aria-label="Appearance">
+        {(["light", "dark"] as const).map((mode) => (
+          <button key={mode} className={scheme === mode ? "on" : undefined} aria-pressed={scheme === mode}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+            onClick={() => { haptic.tap(); setScheme(mode); }}>
+            {mode === "light" ? <Sun size={15} /> : <Moon size={15} />}{mode === "light" ? "Light" : "Dark"}
+          </button>
+        ))}
       </div>
 
       <SlideToConfirm label="Slide to sign out" icon={<LogOut size={19} />} busy={leaving}

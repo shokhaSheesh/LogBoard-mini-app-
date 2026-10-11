@@ -1,19 +1,21 @@
 /* ─── Tokens ────────────────────────────────────────────────────────────────
-   The app wears the user's Telegram theme: surfaces and text come from the colours
-   Telegram hands the page (--tg-theme-*), so it is light for a light Telegram and dark
-   for a dark one, in whatever tint the user chose. Pine is ours and stays. Outside
-   Telegram (a plain browser, local development) the fallbacks below apply.
+   Light or dark is the user's choice (Profile → Appearance), set on <html data-scheme>;
+   until they choose, the app opens the way their Telegram looks. The colours are ours in
+   both modes — Pine and its neutrals — so the app looks the same in every Telegram theme
+   and the choice means the same thing on every phone.
 
    Dates are DD.MM.YY and digits are tabular, as on the web. */
 :root {
   --font: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
 
-  --surface: var(--tg-theme-secondary-bg-color, #F4F6F5);   /* the page behind the cards */
-  --card:    var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #FFFFFF));
-  --ink:     var(--tg-theme-text-color, #0F1A14);
-  --muted:   var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #6B7A72));
+  --surface: #F4F6F5;   /* the page behind the cards */
+  --card:    #FFFFFF;
+  --ink:     #0F1A14;
+  --muted:   #6B7A72;
   --line:    color-mix(in srgb, var(--ink) 10%, transparent);
   --fill:    color-mix(in srgb, var(--ink) 6%, transparent);  /* quiet fills: chips, tracks */
+
+  color-scheme: light;
 
   --pine: #178A4C;
   --pine-soft: color-mix(in srgb, var(--pine) 14%, transparent);
@@ -27,10 +29,10 @@
   --tabbar-h: 56px;
 }
 :root[data-scheme="dark"] {
-  --surface: var(--tg-theme-secondary-bg-color, #101613);
-  --card:    var(--tg-theme-section-bg-color, var(--tg-theme-bg-color, #1B2320));
-  --ink:     var(--tg-theme-text-color, #EEF3F0);
-  --muted:   var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #93A39A));
+  --surface: #101613;
+  --card:    #1B2320;
+  --ink:     #EEF3F0;
+  --muted:   #93A39A;
   --pine: #2FB36A;
   --danger: #F87171;
   color-scheme: dark;
@@ -291,3 +293,26 @@ button { cursor: pointer; border: none; background: none; padding: 0; }
 .extract-card .sub { color: color-mix(in srgb, var(--ink) 70%, transparent); }
 .textarea { width: 100%; min-height: 150px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); outline: none; font: inherit; font-size: 16px; color: inherit; resize: none; }
 .textarea:focus { border-color: var(--pine); box-shadow: 0 0 0 3px var(--pine-soft); }
+
+/* ─── Calendar and time: our own, not the phone's ────────────────────────── */
+.picker svg { color: var(--muted); flex-shrink: 0; }
+.picker:disabled { opacity: 0.55; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 700; margin: 2px 0 8px; }
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; text-align: center; }
+.cal > i { font-style: normal; font-size: 11px; font-weight: 600; color: var(--muted); padding: 4px 0 6px; }
+.cal > button { justify-self: center; width: 42px; height: 42px; max-width: 100%; border-radius: 50%; font-size: 15px; font-weight: 500; }
+.cal > button.today { box-shadow: inset 0 0 0 1.5px var(--pine); color: var(--pine); font-weight: 700; }
+.cal > button.on { background: var(--pine); color: var(--on-pine); font-weight: 700; box-shadow: none; }
+.cal > button:disabled { color: var(--muted); opacity: 0.4; }
+.sheet-foot { display: flex; gap: 8px; margin-top: 12px; }
+.sheet-foot > .btn { flex: 1; }
+
+/* Two columns that snap to a row; the band across the middle marks the row in force. */
+.wheels { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 220px; margin-top: 4px; }
+.wheels::before { content: ""; position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-radius: 12px; background: var(--fill); }
+.wheels > b { position: relative; font-size: 22px; padding: 0 6px; }
+.wheel { position: relative; height: 220px; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; overscroll-behavior: contain; padding: 88px 0;
+  -webkit-mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); mask-image: linear-gradient(transparent, #000 32%, #000 68%, transparent); }
+.wheel::-webkit-scrollbar { display: none; }
+.wheel > button { display: block; width: 100%; height: 44px; scroll-snap-align: center; font-size: 22px; font-weight: 600; color: var(--muted); }
+.wheel > button.on { color: var(--ink); }

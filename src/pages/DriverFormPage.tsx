@@ -9,6 +9,7 @@ import { friendlyError } from "../lib/errors";
 import { periodRange } from "../lib/period";
 import { STATUS_CONFIG, ALL_STATUSES } from "../lib/statuses";
 import { dollars } from "../components/finance";
+import { DateField } from "../components/pickers";
 import { NumberInput, Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
 
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -164,7 +165,7 @@ export function DriverFormPage() {
         {payChanged && was && (
           <>
             <div className="flabel">New pay starts on</div>
-            <input className="field" type="date" min={today()} value={payFrom} onChange={(e) => setPayFrom(e.target.value || today())} aria-label="New pay starts on" />
+            <DateField label="New pay starts on" value={payFrom} onChange={setPayFrom} min={today()} required />
             <div className="sub">Until then, and for everything before, it stays {describePay(was.payType, was.payRate).toLowerCase()}.</div>
           </>
         )}

@@ -11,6 +11,7 @@ import {
 } from "../lib/loads";
 import { suggestAddresses, type PlaceSuggestion } from "../lib/places";
 import { haptic } from "../lib/telegram";
+import { DateField, TimeField } from "../components/pickers";
 import { NumberInput, Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
 import { ExtractSheet } from "../components/ExtractSheet";
 
@@ -358,10 +359,10 @@ function StopSheet({ index, count, stop, onSave, onRemove, onClose }: {
           <button className="btn ghost" style={{ width: "auto", padding: "0 12px", height: 46, fontSize: 13 }} onClick={() => setAppt({ date: "", from: "", to: "", note: "" })}>Use a date</button>
         </div>
       ) : <>
-        <input className="field" type="date" value={appt.date} onChange={(e) => setAppt({ ...appt, date: e.target.value })} aria-label="Date" style={{ marginTop: 6 }} />
+        <DateField label="Date" value={appt.date} onChange={(date) => setAppt({ ...appt, date })} style={{ marginTop: 6 }} />
         <div className="two" style={{ marginTop: 8 }}>
-          <div><div className="sub" style={{ margin: "0 2px 4px" }}>From</div><input className="field" type="time" value={appt.from} onChange={(e) => setAppt({ ...appt, from: e.target.value })} aria-label="From" /></div>
-          <div><div className="sub" style={{ margin: "0 2px 4px" }}>To (optional)</div><input className="field" type="time" value={appt.to} onChange={(e) => setAppt({ ...appt, to: e.target.value })} aria-label="To" /></div>
+          <div><div className="sub" style={{ margin: "0 2px 4px" }}>From</div><TimeField label="From" value={appt.from} onChange={(from) => setAppt({ ...appt, from })} /></div>
+          <div><div className="sub" style={{ margin: "0 2px 4px" }}>To (optional)</div><TimeField label="To" value={appt.to} onChange={(to) => setAppt({ ...appt, to })} /></div>
         </div>
       </>}
 

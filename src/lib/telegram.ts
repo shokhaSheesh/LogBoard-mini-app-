@@ -17,6 +17,9 @@ interface TgWebApp {
   };
   BackButton?: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   disableVerticalSwipes?: () => void;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  setBottomBarColor?: (color: string) => void;
 }
 
 const tg: TgWebApp | undefined = (window as unknown as { Telegram?: { WebApp?: TgWebApp } }).Telegram?.WebApp;
@@ -27,12 +30,63 @@ export const inTelegram = !!tg?.initData;
 /** Telegram's signed note of who opened the app. The API checks the signature; we only carry it. */
 export const launchData: string = tg?.initData ?? "";
 
-// Light or dark, from Telegram when it is there, otherwise from the device.
-function scheme(): "light" | "dark" {
+// ─── Light or dark ────────────────────────────────────────────────────────────
+//
+// The app is light or dark by the user's own choice, made in Profile and remembered on this
+// phone. Until they choose, it opens the way their Telegram looks (or their device, outside
+// Telegram). The colours themselves are ours in both modes — see theme.css.
+
+export type Scheme = "light" | "dark";
+
+const SCHEME_KEY = "brelo.scheme";
+// The page colour of each mode (theme.css --surface), for Telegram's own bars around the app.
+const PAGE: Record<Scheme, string> = { light: "#F4F6F5", dark: "#101613" };
+
+// What the user picked, if they have. It is read from storage once; storage can be
+// unavailable (a private window, a locked-down webview), and the choice then lasts until
+// the app is closed rather than not at all.
+let picked: Scheme | null = (() => {
+  try {
+    const v = localStorage.getItem(SCHEME_KEY);
+    return v === "light" || v === "dark" ? v : null;
+  } catch { return null; }
+})();
+
+function ambient(): Scheme {
   if (inTelegram && tg?.colorScheme) return tg.colorScheme;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
-const applyScheme = () => { document.documentElement.dataset.scheme = scheme(); };
+
+/** The mode in force. */
+export const currentScheme = (): Scheme => picked ?? ambient();
+
+const watchers = new Set<() => void>();
+
+function applyScheme(): void {
+  const scheme = currentScheme();
+  document.documentElement.dataset.scheme = scheme;
+  // Telegram draws a bar above the app and, on some phones, one below. Left alone they keep
+  // Telegram's own theme, which is the wrong colour the moment the user picks the other mode.
+  try {
+    tg?.setHeaderColor?.(PAGE[scheme]);
+    tg?.setBackgroundColor?.(PAGE[scheme]);
+    tg?.setBottomBarColor?.(PAGE[scheme]);
+  } catch { /* an older Telegram without these — the bars keep its theme */ }
+  watchers.forEach((w) => w());
+}
+
+/** Switch the app to light or dark, and remember it on this phone. */
+export function setScheme(scheme: Scheme): void {
+  picked = scheme;
+  try { localStorage.setItem(SCHEME_KEY, scheme); } catch { /* not remembered past this visit */ }
+  applyScheme();
+}
+
+/** Be told when the mode changes. Returns the way to stop. */
+export function onScheme(cb: () => void): () => void {
+  watchers.add(cb);
+  return () => { watchers.delete(cb); };
+}
 
 /** Call once, before the first render. */
 export function initTelegram(): void {
