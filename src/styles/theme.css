@@ -22,6 +22,10 @@
   --on-pine: #FFFFFF;
   --danger: #DC2626;
   --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+  /* "Check this": a value that is probably fine but should be looked at. */
+  --caution: #B45309;
+  --caution-soft: color-mix(in srgb, #F59E0B 16%, transparent);
+  --caution-line: color-mix(in srgb, #F59E0B 55%, transparent);
 
   /* Room the phone and Telegram keep for themselves at the edges. */
   --safe-top:    max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px));
@@ -35,6 +39,7 @@
   --muted:   #93A39A;
   --pine: #2FB36A;
   --danger: #F87171;
+  --caution: #FBBF24;
   color-scheme: dark;
 }
 
@@ -316,3 +321,17 @@ button { cursor: pointer; border: none; background: none; padding: 0; }
 .wheel::-webkit-scrollbar { display: none; }
 .wheel > button { display: block; width: 100%; height: 44px; scroll-snap-align: center; font-size: 22px; font-weight: 600; color: var(--muted); }
 .wheel > button.on { color: var(--ink); }
+
+/* ─── A parsed draft: what to double-check ───────────────────────────────── */
+/* A flagged value: the field (or the box around it) takes an amber ring. */
+.field.flagged, .flagged > .field { border-color: var(--caution-line); box-shadow: 0 0 0 3px var(--caution-soft); }
+/* What is wrong with it, and the passage it was read from. */
+.caution { display: flex; flex-direction: column; gap: 5px; margin: -2px 2px 0; font-size: 12.5px; line-height: 1.4; color: var(--caution); }
+.caution q { quotes: none; display: block; padding: 6px 9px; border-left: 3px solid var(--caution); border-radius: 0 8px 8px 0; background: var(--fill); color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }
+.caution small { font-size: 11.5px; color: var(--muted); }
+/* The two drafts with nothing to flag on a field: one that checked out, one that could not be checked. */
+.notice { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 14px; border: 1px solid var(--line); background: var(--fill); font-size: 12.5px; color: var(--muted); }
+.notice > svg { flex-shrink: 0; margin-top: 1px; }
+.notice b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.notice.ok { background: var(--pine-soft); }
+.notice.ok > svg { color: var(--pine); }

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { AlertCircle, Check, ChevronRight, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { EMPTY_APPT, formatApptParts, parseAppt } from "../lib/appt";
 import { friendlyError } from "../lib/errors";
@@ -14,6 +14,7 @@ import { haptic } from "../lib/telegram";
 import { DateField, TimeField } from "../components/pickers";
 import { NumberInput, Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
 import { ExtractSheet } from "../components/ExtractSheet";
+import { uncheckable, type Review, type ReviewField } from "../lib/extract";
 
 const RouteMap = lazy(() => import("../components/RouteMap").then((m) => ({ default: m.RouteMap })));
 
@@ -47,15 +48,40 @@ export function LoadFormPage() {
     return () => { stale = true; };
   }, [id, isNew]);
 
-  const set = (patch: Partial<Load>) => { setForm((f) => ({ ...f, ...patch })); setError(""); };
+  // What the extractor said to double-check on the draft the form is showing. A flag is
+  // about the value the extractor wrote: once that value is changed it is the person's own,
+  // and the flag no longer describes it.
+  const [review, setReview] = useState<Review | null>(null);
+  const [settled, setSettled] = useState<ReviewField[]>([]);
+  const FLAGGED_BY: Partial<Record<keyof Load, ReviewField>> = { loadId: "load_id", broker: "broker", payout: "payout", miles: "miles", stops: "stops" };
+  const set = (patch: Partial<Load>) => {
+    const touched = (Object.keys(patch) as (keyof Load)[]).map((k) => FLAGGED_BY[k]).filter((f): f is ReviewField => !!f);
+    if (review && touched.length) setSettled((s) => [...new Set([...s, ...touched])]);
+    setForm((f) => ({ ...f, ...patch })); setError("");
+  };
+  const flagsOn = (f: ReviewField) => (review && !settled.includes(f) ? review.warnings.filter((w) => w.field === f) : []);
+  // What is wrong with a flagged value, and the passage it was read from.
+  const flagNote = (f: ReviewField) => flagsOn(f).length > 0 && (
+    <div className="caution" role="note">
+      {flagsOn(f).map((w) => <div key={w.code}>{w.message}</div>)}
+      {review?.evidence[f]?.quote && <q>{review.evidence[f]!.quote}</q>}
+      {(review?.evidence[f]?.page ?? 0) > 0 && <small>Read from page {review!.evidence[f]!.page}</small>}
+    </div>
+  );
+  const flagged = (f: ReviewField) => (flagsOn(f).length ? "flagged" : undefined);
   const leave = () => navigate(isNew ? "/loads" : `/loads/${id}`);
 
   // Loaded miles follow the route: whenever every stop has a point, the driving distance
   // through them is worked out and written in. It can still be typed over afterwards.
   const routeKey = form.stops.map((s) => (located(s) ? `${s.lat},${s.lng}` : "?")).join("|");
   const firstRoute = useRef(true);
+  // The route whose miles came from a document, as its key; null when none did.
+  const statedFor = useRef<string | null>(null);
+  const keyOf = (stops: Stop[]) => stops.map((s) => (located(s) ? `${s.lat},${s.lng}` : "?")).join("|");
   const [measuring, setMeasuring] = useState(false);
   useEffect(() => {
+    // Miles a rate confirmation states are the broker's figure: its route is not re-measured.
+    if (routeKey === statedFor.current) return;
     // The route a load is opened with already has its miles; only a change re-measures.
     if (firstRoute.current) { firstRoute.current = !was || routeKey === was.stops.map((s) => (located(s) ? `${s.lat},${s.lng}` : "?")).join("|"); if (firstRoute.current) return; }
     const pts = form.stops.filter(located).map((s) => ({ lat: s.lat!, lng: s.lng! }));
@@ -125,12 +151,23 @@ export function LoadFormPage() {
               <ChevronRight size={18} style={{ color: "var(--pine)", marginLeft: "auto", flexShrink: 0 }} />
             </button>
           )}
+          {/* A draft with problems is flagged on the fields themselves. These two notices are
+              for the drafts with none to show: one that checked out, and one that could not
+              be checked at all. */}
+          {review && uncheckable(review) ? (
+            <div className="notice"><AlertCircle size={17} /><span><b>Read from a photo or a scan</b>The values could not be checked against the document's text. Compare them with the document.</span></div>
+          ) : review && review.warnings.length === 0 ? (
+            <div className="notice ok"><CheckCircle2 size={17} /><span><b>Nothing to flag</b>The load number, broker, rate and miles were found in the document. You still check it before saving.</span></div>
+          ) : null}
           <div className="flabel req">Load ID</div>
-          <input className="field" value={form.loadId} onChange={(e) => set({ loadId: e.target.value })} placeholder="58135734" aria-label="Load ID" autoCapitalize="characters" autoCorrect="off" aria-invalid={!!error && !form.loadId.trim()} />
+          <input className={`field ${flagged("load_id") ?? ""}`} value={form.loadId} onChange={(e) => set({ loadId: e.target.value })} placeholder="58135734" aria-label="Load ID" autoCapitalize="characters" autoCorrect="off" aria-invalid={!!error && !form.loadId.trim()} />
+          {flagNote("load_id")}
           <div className="flabel">Broker</div>
-          <input className="field" value={form.broker} onChange={(e) => set({ broker: e.target.value })} placeholder="CRST" aria-label="Broker" autoCorrect="off" />
+          <input className={`field ${flagged("broker") ?? ""}`} value={form.broker} onChange={(e) => set({ broker: e.target.value })} placeholder="CRST" aria-label="Broker" autoCorrect="off" />
+          {flagNote("broker")}
           <div className="flabel">Rate</div>
-          <NumberInput label="Rate" prefix="$" value={form.payout} onChange={(payout) => set({ payout })} />
+          <div className={flagged("payout")}><NumberInput label="Rate" prefix="$" value={form.payout} onChange={(payout) => set({ payout })} /></div>
+          {flagNote("payout")}
           {/* The load's other numbers. A driver is asked for these at the gate, and they go
               into the message sent to the driver's group. */}
           <div className="flabel">Ref #</div>
@@ -164,8 +201,9 @@ export function LoadFormPage() {
           <button className="add-row" onClick={() => { const at = form.stops.length - 1; set({ stops: [...form.stops.slice(0, at), { ...EMPTY_STOP }, ...form.stops.slice(at)] }); setSheet({ stop: at }); }}>
             <Plus size={17} /> Add a stop
           </button>
+          {flagNote("stops")}
           <div className="two">
-            <div><div className="flabel" style={{ marginBottom: 6 }}>Loaded miles</div><NumberInput label="Loaded miles" suffix={measuring ? "…" : "mi"} whole value={form.miles} onChange={(miles) => set({ miles })} /></div>
+            <div className={flagged("miles")}><div className="flabel" style={{ marginBottom: 6 }}>Loaded miles</div><NumberInput label="Loaded miles" suffix={measuring ? "…" : "mi"} whole value={form.miles} onChange={(miles) => set({ miles })} /></div>
             <div><div className="flabel" style={{ marginBottom: 6 }}>Deadhead</div><NumberInput label="Deadhead miles" suffix="mi" whole value={form.deadhead} onChange={(deadhead) => set({ deadhead })} /></div>
           </div>
         </>}
@@ -209,13 +247,18 @@ export function LoadFormPage() {
 
       {sheet === "extract" && (
         <ExtractSheet onClose={() => setSheet(null)}
-          onDraft={(draft) => {
+          onDraft={({ draft, review: found }) => {
             // The draft replaces what the document can know; the driver and dispatcher,
             // which it can't, stay as picked.
-            set(draft);
+            setForm((f) => ({ ...f, ...draft })); setError("");
+            setReview(found); setSettled([]);
+            // Stated miles are kept; with none, the route is measured once it is on the map.
+            statedFor.current = draft.miles > 0 ? keyOf(draft.stops) : null;
             setSheet(null);
             const lost = draft.stops.filter((x) => x.city.trim() && x.lat == null).length;
-            toast.ok(lost ? `Filled in. ${lost === 1 ? "One stop needs" : `${lost} stops need`} placing on the map.` : "Filled in. Check it before saving.");
+            const checks = found.warnings.length;
+            toast.ok(lost ? `Filled in. ${lost === 1 ? "One stop needs" : `${lost} stops need`} placing on the map.`
+              : checks ? `Filled in. ${checks === 1 ? "One thing" : `${checks} things`} to check.` : "Filled in. Check it before saving.");
           }} />
       )}
       {sheet === "driver" && <DriverSheet current={form.driverId} onClose={() => setSheet(null)} onPick={(d) => { set({ driverId: d?.id ?? "", driver: d?.name ?? "" }); setSheet(null); }} />}

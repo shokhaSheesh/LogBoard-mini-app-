@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, ClipboardPaste, FileUp } from "lucide-react";
 import { friendlyError } from "../lib/errors";
-import { extractFromFile, extractFromText, MAX_FILE_BYTES, type Draft } from "../lib/extract";
+import { extractFromFile, extractFromText, MAX_FILE_BYTES, type Extraction } from "../lib/extract";
 import { haptic } from "../lib/telegram";
 import { Sheet, SheetRow } from "./ui";
 
 // Filling a new load from a rate confirmation. Three ways in — the camera, a file, or
 // pasted text — then a wait while it is read, and the draft goes back to the form.
-export function ExtractSheet({ onDraft, onClose }: { onDraft: (d: Draft) => void; onClose: () => void }) {
+export function ExtractSheet({ onDraft, onClose }: { onDraft: (x: Extraction) => void; onClose: () => void }) {
   const [mode, setMode]   = useState<"pick" | "paste" | "reading">("pick");
   const [text, setText]   = useState("");
   const [error, setError] = useState("");
@@ -17,7 +17,7 @@ export function ExtractSheet({ onDraft, onClose }: { onDraft: (d: Draft) => void
   const open = useRef(true);
   useEffect(() => () => { open.current = false; }, []);
 
-  async function read(work: Promise<Draft>, back: "pick" | "paste") {
+  async function read(work: Promise<Extraction>, back: "pick" | "paste") {
     setMode("reading"); setError("");
     try {
       const draft = await work;

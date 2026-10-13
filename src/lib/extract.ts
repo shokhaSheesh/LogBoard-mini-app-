@@ -16,6 +16,26 @@ export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /** What a draft fills in. The driver and dispatcher are a person's call, so they aren't here. */
 export type Draft = Pick<Load, "loadId" | "broker" | "payout" | "miles" | "deadhead" | "stops">;
 
+// Beside the draft, the server says where the four values a mistake costs money on were
+// read from, and lists what a person should look at before saving. Nothing here blocks a
+// save: a draft is a suggestion, and these are the places to look first.
+
+/** The draft fields a warning can name. */
+export type ReviewField = "load_id" | "broker" | "payout" | "miles" | "stops";
+export interface Evidence { quote: string; page: number; status: "verified" | "unverified" | "not_found" }
+export interface Warning { code: string; field: string; message: string }
+export interface Review { evidence: Partial<Record<ReviewField, Evidence>>; warnings: Warning[] }
+export interface Extraction { draft: Draft; review: Review }
+
+const KEY_FIELDS: ReviewField[] = ["load_id", "broker", "payout", "miles"];
+/** A photo or a scan has no text to check a value against, so nothing could be verified. */
+export const uncheckable = (r: Review) =>
+  Object.keys(r.evidence).length > 0 && KEY_FIELDS.every((f) => (r.evidence[f]?.status ?? "unverified") === "unverified");
+
+function toReview(res: Raw): Review {
+  return { evidence: res?.evidence ?? {}, warnings: Array.isArray(res?.warnings) ? res.warnings : [] };
+}
+
 function toDraft(d: Raw): Draft {
   const stops: Stop[] = (Array.isArray(d?.stops) ? d.stops : []).map((s: Raw) => ({
     ...EMPTY_STOP,
@@ -43,9 +63,12 @@ async function locate(draft: Draft): Promise<Draft> {
 }
 
 // Reading takes a while — tens of seconds for a long PDF — because a model reads the page.
-export async function extractFromFile(file: File): Promise<Draft> {
-  return locate(toDraft((await api.upload<Raw>("/loads/extract", file))?.draft));
+async function read(res: Raw): Promise<Extraction> {
+  return { draft: await locate(toDraft(res?.draft)), review: toReview(res) };
 }
-export async function extractFromText(text: string): Promise<Draft> {
-  return locate(toDraft((await api.post<Raw>("/loads/extract", { text }))?.draft));
+export async function extractFromFile(file: File): Promise<Extraction> {
+  return read(await api.upload<Raw>("/loads/extract", file));
+}
+export async function extractFromText(text: string): Promise<Extraction> {
+  return read(await api.post<Raw>("/loads/extract", { text }));
 }
