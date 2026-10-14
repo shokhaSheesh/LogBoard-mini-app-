@@ -57,13 +57,15 @@ function tracked<T>(work: Promise<T>): Promise<T> {
 /** Resolves once nothing is being fetched. */
 export const whenIdle = (): Promise<void> => (inFlight === 0 ? Promise.resolve() : new Promise((done) => idleWaiters.add(done)));
 
-async function request<T>(method: string, path: string, body?: unknown, form?: FormData): Promise<T> {
+// `asCompany` sends the request for that company instead of the active one, for a lookup
+// that has to find which of the user's companies something belongs to.
+async function request<T>(method: string, path: string, body?: unknown, form?: FormData, asCompany?: string): Promise<T> {
   // A file goes as a form, and the browser writes that Content-Type itself (it carries the
   // boundary between the parts).
   const headers: Record<string, string> = form ? {} : { "Content-Type": "application/json" };
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const company = getCompanyId();
+  const company = asCompany ?? getCompanyId();
   if (company) headers["X-Company-ID"] = company;
 
   const res = await fetch(`${BASE}${path}`, { method, headers, body: form ?? (body === undefined ? undefined : JSON.stringify(body)) });
@@ -136,6 +138,8 @@ export const api = {
   list:  <T>(path: string, params?: Record<string, string | number | undefined>) => tracked(list<T>(path, params)),
   blob:  (path: string) => tracked(blob(path)),
   get:   <T>(path: string) => tracked(request<T>("GET", path)),
+  /** A read made for a company other than the active one. */
+  getAs: <T>(path: string, companyId: string) => tracked(request<T>("GET", path, undefined, undefined, companyId)),
   post:  <T>(path: string, body?: unknown) => tracked(request<T>("POST", path, body)),
   put:   <T>(path: string, body?: unknown) => tracked(request<T>("PUT", path, body)),
   patch: <T>(path: string, body?: unknown) => tracked(request<T>("PATCH", path, body)),

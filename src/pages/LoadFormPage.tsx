@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import { AlertCircle, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { EMPTY_APPT, formatApptParts, parseAppt } from "../lib/appt";
@@ -14,7 +14,7 @@ import { haptic } from "../lib/telegram";
 import { DateField, TimeField } from "../components/pickers";
 import { NumberInput, Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
 import { ExtractSheet } from "../components/ExtractSheet";
-import { uncheckable, type Review, type ReviewField } from "../lib/extract";
+import { uncheckable, type Extraction, type Review, type ReviewField } from "../lib/extract";
 
 const RouteMap = lazy(() => import("../components/RouteMap").then((m) => ({ default: m.RouteMap })));
 
@@ -92,6 +92,22 @@ export function LoadFormPage() {
     return () => ctl.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeKey, was]);
+
+  // A reading — from the sheet here, or a draft the bot made, opened from its "Open in
+  // Brelo" button — fills in what the document can know. The driver and dispatcher, which it
+  // can't, stay as picked.
+  const fillFrom = ({ draft, review: found }: Extraction) => {
+    setForm((f) => ({ ...f, ...draft })); setError("");
+    setReview(found); setSettled([]);
+    // Stated miles are kept; with none, the route is measured once it is on the map.
+    statedFor.current = draft.miles > 0 ? keyOf(draft.stops) : null;
+    const lost = draft.stops.filter((x) => x.city.trim() && x.lat == null).length;
+    const checks = found.warnings.length;
+    toast.ok(lost ? `Filled in. ${lost === 1 ? "One stop needs" : `${lost} stops need`} placing on the map.`
+      : checks ? `Filled in. ${checks === 1 ? "One thing" : `${checks} things`} to check.` : "Filled in. Check it before saving.");
+  };
+  const handed = (useLocation().state as { extraction?: Extraction } | null)?.extraction;
+  useEffect(() => { if (isNew && handed) fillFrom(handed); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // What stands between this step and the next, as a sentence; "" when nothing does.
   const blocker = (s: number): string => {
@@ -247,19 +263,7 @@ export function LoadFormPage() {
 
       {sheet === "extract" && (
         <ExtractSheet onClose={() => setSheet(null)}
-          onDraft={({ draft, review: found }) => {
-            // The draft replaces what the document can know; the driver and dispatcher,
-            // which it can't, stay as picked.
-            setForm((f) => ({ ...f, ...draft })); setError("");
-            setReview(found); setSettled([]);
-            // Stated miles are kept; with none, the route is measured once it is on the map.
-            statedFor.current = draft.miles > 0 ? keyOf(draft.stops) : null;
-            setSheet(null);
-            const lost = draft.stops.filter((x) => x.city.trim() && x.lat == null).length;
-            const checks = found.warnings.length;
-            toast.ok(lost ? `Filled in. ${lost === 1 ? "One stop needs" : `${lost} stops need`} placing on the map.`
-              : checks ? `Filled in. ${checks === 1 ? "One thing" : `${checks} things`} to check.` : "Filled in. Check it before saving.");
-          }} />
+          onDraft={(x) => { setSheet(null); fillFrom(x); }} />
       )}
       {sheet === "driver" && <DriverSheet current={form.driverId} onClose={() => setSheet(null)} onPick={(d) => { set({ driverId: d?.id ?? "", driver: d?.name ?? "" }); setSheet(null); }} />}
       {sheet === "dispatcher" && <DispatcherSheet current={form.dispatcherId} onClose={() => setSheet(null)} onPick={(p) => { set({ dispatcherId: p?.id ?? "", dispatcher: p?.name ?? "" }); setSheet(null); }} />}

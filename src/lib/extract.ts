@@ -1,7 +1,7 @@
 import { api } from "./api";
 import { formatAppt } from "./appt";
 import { geocodeCity } from "./geo";
-import { EMPTY_STOP, fullAddress, type Load, type Stop } from "./loads";
+import { EMPTY_STOP, fullAddress, TIME_ZONES, type Load, type Stop } from "./loads";
 
 // AI smart extract: a broker's rate confirmation — a photo, a PDF, or its text pasted in —
 // read by the server into a draft load. Nothing is saved by it: the draft fills the New
@@ -14,7 +14,7 @@ type Raw = any;
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /** What a draft fills in. The driver and dispatcher are a person's call, so they aren't here. */
-export type Draft = Pick<Load, "loadId" | "broker" | "payout" | "miles" | "deadhead" | "stops">;
+export type Draft = Pick<Load, "loadId" | "broker" | "payout" | "miles" | "deadhead" | "refNumber" | "poNumber" | "otherNumber" | "stops">;
 
 // Beside the draft, the server says where the four values a mistake costs money on were
 // read from, and lists what a person should look at before saving. Nothing here blocks a
@@ -44,10 +44,19 @@ function toDraft(d: Raw): Draft {
     // The appointment as printed, in the app's one format; wording that is only a label
     // ("Appointment", "TBD") comes back empty rather than pretending to be a time.
     appt: formatAppt(s.appt), done: false,
+    // Taken only when they are values the form knows; anything else is left for a person.
+    apptTz: (TIME_ZONES as readonly string[]).includes(s.appt_tz) ? s.appt_tz : "",
+    ref: String(s.ref ?? "").trim(),
+    kind: s.kind === "pickup" || s.kind === "delivery" ? s.kind : "",
   }));
   // The form expects at least a pickup and a delivery to fill in.
   while (stops.length < 2) stops.push({ ...EMPTY_STOP });
-  return { loadId: d?.load_id ?? "", broker: d?.broker ?? "", payout: d?.payout ?? 0, miles: d?.miles ?? 0, deadhead: d?.deadhead_distance ?? 0, stops };
+  return {
+    loadId: d?.load_id ?? "", broker: d?.broker ?? "", payout: d?.payout ?? 0, miles: d?.miles ?? 0, deadhead: d?.deadhead_distance ?? 0,
+    // The load's other numbers, "" when the document doesn't print them.
+    refNumber: String(d?.ref_number ?? "").trim(), poNumber: String(d?.po_number ?? "").trim(), otherNumber: String(d?.other_number ?? "").trim(),
+    stops,
+  };
 }
 
 // A stop can only be saved once it has a point on the map. The document gives addresses,
@@ -63,12 +72,13 @@ async function locate(draft: Draft): Promise<Draft> {
 }
 
 // Reading takes a while — tens of seconds for a long PDF — because a model reads the page.
-async function read(res: Raw): Promise<Extraction> {
+/** A reading as the server sends one — from the extract endpoint, or a draft the bot made. */
+export async function fromReading(res: Raw): Promise<Extraction> {
   return { draft: await locate(toDraft(res?.draft)), review: toReview(res) };
 }
 export async function extractFromFile(file: File): Promise<Extraction> {
-  return read(await api.upload<Raw>("/loads/extract", file));
+  return fromReading(await api.upload<Raw>("/loads/extract", file));
 }
 export async function extractFromText(text: string): Promise<Extraction> {
-  return read(await api.post<Raw>("/loads/extract", { text }));
+  return fromReading(await api.post<Raw>("/loads/extract", { text }));
 }

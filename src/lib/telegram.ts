@@ -9,6 +9,7 @@ interface TgWebApp {
   expand(): void;
   colorScheme?: "light" | "dark";
   initData?: string;
+  initDataUnsafe?: { start_param?: string };
   onEvent(event: string, cb: () => void): void;
   HapticFeedback?: {
     impactOccurred(style: "light" | "medium" | "heavy"): void;
@@ -29,6 +30,9 @@ export const inTelegram = !!tg?.initData;
 
 /** Telegram's signed note of who opened the app. The API checks the signature; we only carry it. */
 export const launchData: string = tg?.initData ?? "";
+
+/** What a t.me/<bot>?startapp=… link asked the app to open ("draft_<uuid>"), or "". */
+export const startParam: string = tg?.initDataUnsafe?.start_param ?? "";
 
 // ─── Light or dark ────────────────────────────────────────────────────────────
 //

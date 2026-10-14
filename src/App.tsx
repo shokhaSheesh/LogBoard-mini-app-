@@ -17,6 +17,7 @@ import { EquipmentPage } from "./pages/EquipmentPage";
 import { InvoicesPage } from "./pages/InvoicesPage";
 import { Toaster } from "./components/ui";
 import { PullToRefresh } from "./components/PullToRefresh";
+import { OpenFromBot } from "./components/OpenFromBot";
 import { useRefreshRound } from "./lib/refresh";
 
 export function App() {
@@ -76,6 +77,8 @@ function Shell() {
           moving between the tabs themselves. */}
       {tabs.some((t) => t.path === pathname) && <TabBar tabs={tabs} />}
       <PullToRefresh />
+      {/* Opened from one of the bot's "Open in Brelo" buttons: go where it pointed. */}
+      <OpenFromBot />
       <Toaster />
     </div>
   );
