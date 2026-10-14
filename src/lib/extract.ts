@@ -24,7 +24,9 @@ export type Draft = Pick<Load, "loadId" | "broker" | "payout" | "miles" | "deadh
 export type ReviewField = "load_id" | "broker" | "payout" | "miles" | "stops";
 export interface Evidence { quote: string; page: number; status: "verified" | "unverified" | "not_found" }
 export interface Warning { code: string; field: string; message: string }
-export interface Review { evidence: Partial<Record<ReviewField, Evidence>>; warnings: Warning[] }
+// Who read the document: a model, or "template" — a broker layout the server learned from
+// this company's earlier documents, read instantly and without a model.
+export interface Review { evidence: Partial<Record<ReviewField, Evidence>>; warnings: Warning[]; fromTemplate: boolean }
 export interface Extraction { draft: Draft; review: Review }
 
 const KEY_FIELDS: ReviewField[] = ["load_id", "broker", "payout", "miles"];
@@ -33,7 +35,7 @@ export const uncheckable = (r: Review) =>
   Object.keys(r.evidence).length > 0 && KEY_FIELDS.every((f) => (r.evidence[f]?.status ?? "unverified") === "unverified");
 
 function toReview(res: Raw): Review {
-  return { evidence: res?.evidence ?? {}, warnings: Array.isArray(res?.warnings) ? res.warnings : [] };
+  return { evidence: res?.evidence ?? {}, warnings: Array.isArray(res?.warnings) ? res.warnings : [], fromTemplate: res?.meta?.provider === "template" };
 }
 
 function toDraft(d: Raw): Draft {

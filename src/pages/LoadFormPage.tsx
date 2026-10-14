@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
-import { AlertCircle, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Trash2 } from "lucide-react";
+import { AlertCircle, Check, CheckCircle2, ChevronRight, Plus, Search, Sparkles, Trash2, Zap } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
 import { EMPTY_APPT, formatApptParts, parseAppt } from "../lib/appt";
 import { friendlyError } from "../lib/errors";
@@ -173,7 +173,7 @@ export function LoadFormPage() {
           {review && uncheckable(review) ? (
             <div className="notice"><AlertCircle size={17} /><span><b>Read from a photo or a scan</b>The values could not be checked against the document's text. Compare them with the document.</span></div>
           ) : review && review.warnings.length === 0 ? (
-            <div className="notice ok"><CheckCircle2 size={17} /><span><b>Nothing to flag</b>The load number, broker, rate and miles were found in the document. You still check it before saving.</span></div>
+            <div className="notice ok"><CheckCircle2 size={17} /><span><b>Nothing to flag</b>{review.fromTemplate && <i className="tpl"><Zap size={11} /> Read from a saved template</i>}The load number, broker, rate and miles were found in the document. You still check it before saving.</span></div>
           ) : null}
           <div className="flabel req">Load ID</div>
           <input className={`field ${flagged("load_id") ?? ""}`} value={form.loadId} onChange={(e) => set({ loadId: e.target.value })} placeholder="58135734" aria-label="Load ID" autoCapitalize="characters" autoCorrect="off" aria-invalid={!!error && !form.loadId.trim()} />

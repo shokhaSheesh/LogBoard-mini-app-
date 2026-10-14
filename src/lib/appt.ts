@@ -110,6 +110,10 @@ export function parseAppt(raw?: string): ApptParts {
 
   // Anything left besides separators is wording we can't express ("FCFS", "dock 4") —
   // rewriting the value would lose it, so the text stays exactly as it was.
+  // "FCFS" (first come, first served) says only that there is no fixed slot inside the
+  // window. With a date or a time to fill in, it is dropped rather than leaving the whole
+  // appointment unread. On its own it is all there is, and is kept as written below.
+  rest = rest.replace(/\bF\.?C\.?F\.?S\.?(?![a-z])|\bfirst[\s-]+come,?[\s-]+first[\s-]+served?\b/gi, " ");
   const leftover = rest.replace(/[\s·•\-–—,;@|()]|to|from|between|and/gi, "");
   if (leftover || (found.length === 0 && times.length === 0)) return { ...EMPTY_APPT, note: text };
 
