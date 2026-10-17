@@ -41,6 +41,33 @@ export interface Driver {
   currentLoadId: string;
   nextLoadId: string;
   nextLoads: { id: string; ref: string }[];
+  /** The home period on today, or the next one; read-only. */
+  home?: HomePeriod;
+}
+
+// ─── Home time ───────────────────────────────────────────────────────────────
+//
+// The stretches a driver spends at home, kept as a history: dispatchers put one in when a
+// driver goes home, so everyone can see when they're away and when they're back. Both days
+// are YYYY-MM-DD and inclusive. A record only — the driver's status is still set by hand.
+
+export interface HomePeriod { id: string; startDate: string; endDate: string }
+
+const toHome = (p: Raw): HomePeriod | undefined => (p?.id ? { id: p.id, startDate: p.start_date ?? "", endDate: p.end_date ?? "" } : undefined);
+
+export async function listHomePeriods(driverId: string): Promise<HomePeriod[]> {
+  return ((await api.get<Raw[]>(`/drivers/${driverId}/home-periods`)) ?? []).map(toHome).filter((p): p is HomePeriod => !!p);
+}
+/** Adds a period, or changes one when it has an id. The lists show the period, so they go stale. */
+export async function saveHomePeriod(driverId: string, p: { id?: string; startDate: string; endDate: string }): Promise<HomePeriod> {
+  const body = { start_date: p.startDate, end_date: p.endDate };
+  const saved = toHome(p.id ? await api.put<Raw>(`/drivers/${driverId}/home-periods/${p.id}`, body) : await api.post<Raw>(`/drivers/${driverId}/home-periods`, body));
+  forget("drivers|");
+  return saved!;
+}
+export async function deleteHomePeriod(driverId: string, id: string): Promise<void> {
+  await api.delete(`/drivers/${driverId}/home-periods/${id}`);
+  forget("drivers|");
 }
 
 export const EMPTY_DRIVER: Driver = {
@@ -59,6 +86,7 @@ export function toDriver(d: Raw): Driver {
     payType: d.pay_type === "rpm" || d.pay_type === "percent" ? d.pay_type : "", payRate: d.pay_rate ?? 0,
     currentLoad: d.current_load ?? "", currentLoadId: d.current_load_id ?? "", nextLoadId: d.next_load_id ?? "",
     nextLoads: (d.next_loads ?? []).map((l: Raw) => ({ id: l.id, ref: l.load_id ?? "" })),
+    home: toHome(d.home),
   };
 }
 
@@ -84,9 +112,10 @@ export const describePay = (type: PayType, rate: number) => (type === "percent" 
 
 export const PAGE_SIZE = 20;
 
-export function listDrivers(p: { q: string; status: string; team: boolean; page: number }): Promise<{ items: Driver[]; total: number }> {
-  return remembered(`drivers|list|${p.q}|${p.status}|${p.team}|${p.page}`, async () => {
-    const { items, total } = await api.list<Raw>("/drivers", { q: p.q || undefined, status: p.status || undefined, team: String(p.team), page: p.page, page_size: PAGE_SIZE });
+/** type: "O/O" or "C/D" narrows to owner-operators or company drivers; "" is both. */
+export function listDrivers(p: { q: string; status: string; type: DriverType | ""; team: boolean; page: number }): Promise<{ items: Driver[]; total: number }> {
+  return remembered(`drivers|list|${p.q}|${p.status}|${p.type}|${p.team}|${p.page}`, async () => {
+    const { items, total } = await api.list<Raw>("/drivers", { q: p.q || undefined, status: p.status || undefined, type: p.type || undefined, team: String(p.team), page: p.page, page_size: PAGE_SIZE });
     return { items: items.map(toDriver), total };
   });
 }

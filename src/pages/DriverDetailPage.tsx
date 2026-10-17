@@ -11,6 +11,7 @@ import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { Bar, dollars, Kpis, percentOf, perMile, WeekBar } from "../components/finance";
 import { Sheet, SheetRow, StatusChip, toast, TopBar } from "../components/ui";
 import { disconnectDriverGroup, getDriverGroup, type GroupConnection } from "../lib/tgGroup";
+import { HomeTime } from "../components/HomeTime";
 
 type Open = null | "menu" | "status" | "delete" | { uncomplete: Status };
 
@@ -146,6 +147,8 @@ export function DriverDetailPage() {
             </div>
           </>
         )}
+
+        <HomeTime driverId={driver.id} canChange={canUpdate} />
 
         <TelegramGroup driverId={driver.id} driverName={displayName(driver)} canChange={canUpdate} />
 

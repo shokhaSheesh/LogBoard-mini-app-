@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Search } from "lucide-react";
 import { can, useAuth } from "../lib/auth";
-import { displayName, listDrivers, PAGE_SIZE, type Driver } from "../lib/drivers";
+import { displayName, listDrivers, PAGE_SIZE, type Driver, type DriverType } from "../lib/drivers";
 import { friendlyError } from "../lib/errors";
 import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { haptic } from "../lib/telegram";
 import { StatusChip } from "../components/ui";
+import { HomeTag } from "../components/HomeTime";
 
 // What kind of driver the list is showing. Kept while the app is open, so coming back from
 // a driver lands on the same list.
@@ -22,6 +23,7 @@ export function DriversPage() {
   const [typed, setTyped]     = useState("");
   const [q, setQ]             = useState("");
   const [status, setStatus]   = useState<Status | "">("");
+  const [type, setType]       = useState<DriverType | "">("");
   const [rows, setRows]       = useState<Driver[]>([]);
   const [total, setTotal]     = useState(0);
   const [page, setPage]       = useState(1);
@@ -31,14 +33,14 @@ export function DriversPage() {
   // Search waits for a pause in typing.
   useEffect(() => { const t = setTimeout(() => setQ(typed.trim()), 300); return () => clearTimeout(t); }, [typed]);
   // A new search, filter or company starts again from the first page.
-  useEffect(() => { setPage(1); }, [q, status, team, companyId]);
+  useEffect(() => { setPage(1); }, [q, status, type, team, companyId]);
 
   useEffect(() => {
     // Only the latest request may write: a slow answer to an earlier filter must not
     // overwrite a newer one.
     let stale = false;
     setLoading(true);
-    listDrivers({ q, status, team, page })
+    listDrivers({ q, status, type, team, page })
       .then((r) => {
         if (stale) return;
         setRows((prev) => (page === 1 ? r.items : [...prev, ...r.items.filter((x) => !prev.some((p) => p.id === x.id))]));
@@ -47,7 +49,7 @@ export function DriversPage() {
       .catch((e) => { if (!stale) setError(friendlyError(e, "Couldn't load drivers. Try again.")); })
       .finally(() => { if (!stale) setLoading(false); });
     return () => { stale = true; };
-  }, [q, status, team, page, companyId]);
+  }, [q, status, type, team, page, companyId]);
 
   // The next page loads as the end of the list scrolls into view.
   const more = useRef<HTMLDivElement>(null);
@@ -76,7 +78,13 @@ export function DriversPage() {
             <Search size={17} />
             <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Search driver, unit, phone" aria-label="Search drivers" enterKeyHint="search" />
           </label>
-          <div className="chips" role="group" aria-label="Filter by status">
+          <div className="chips" role="group" aria-label="Filter by type and status">
+            {/* The type first — owner-operators or company drivers; tapping the one in force
+                clears it — then the statuses. */}
+            {(["O/O", "C/D"] as const).map((t) => (
+              <button key={t} className={`chip ${type === t ? "on" : ""}`} aria-pressed={type === t} onClick={() => { haptic.tap(); setType(type === t ? "" : t); }}>{t}</button>
+            ))}
+            <span className="chips-sep" aria-hidden />
             <button className={`chip ${status === "" ? "on" : ""}`} onClick={() => setStatus("")}>All</button>
             {ALL_STATUSES.map((s) => (
               <button key={s} className={`chip ${status === s ? "on" : ""}`} onClick={() => { haptic.tap(); setStatus(status === s ? "" : s); }}>{STATUS_CONFIG[s].label}</button>
@@ -86,7 +94,7 @@ export function DriversPage() {
 
         {error && <div className="error" role="alert">{error}</div>}
         {first && rows.length === 0 && <div className="center"><span className="spinner" /></div>}
-        {!loading && !error && rows.length === 0 && <div className="center">{q || status ? "No drivers match." : team ? "No team drivers yet." : "No drivers yet."}</div>}
+        {!loading && !error && rows.length === 0 && <div className="center">{q || status || type ? "No drivers match." : team ? "No team drivers yet." : "No drivers yet."}</div>}
 
         {rows.length > 0 && (
           <div className="list" style={{ opacity: first ? 0.5 : 1, transition: "opacity 0.15s" }}>
@@ -96,6 +104,7 @@ export function DriversPage() {
                 <div className="sub ell">
                   {[d.type, d.truck && `truck ${d.truck}`, d.trailer && `trailer ${d.trailer}`, d.phone].filter(Boolean).join(" · ")}
                 </div>
+                {d.home && <HomeTag home={d.home} />}
               </button>
             ))}
           </div>
