@@ -60,6 +60,9 @@ export interface Load {
   dispatcher: string;
   truckUnit: string;
   trailerUnit: string;
+  /** The latest fuel plan's id, and whether the load (or its truck) changed after it; read-only. */
+  fuelPlanId: string;
+  fuelPlanOutdated: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,6 +91,8 @@ export function toLoad(b: Raw): Load {
     dispatcher: b.dispatcher ?? "",
     truckUnit: b.truck_unit ?? "",
     trailerUnit: b.trailer_unit ?? "",
+    fuelPlanId: b.fuel_plan?.id ?? "",
+    fuelPlanOutdated: !!b.fuel_plan?.outdated,
   };
 }
 
@@ -205,4 +210,5 @@ export const EMPTY_LOAD: Load = {
     { ...EMPTY_STOP },
     { ...EMPTY_STOP },
   ], refNumber: "", poNumber: "", otherNumber: "", payout: 0, miles: 0, deadhead: 0, driverId: "", driver: "", driverPhone: "", dispatcherId: "", dispatcher: "", truckUnit: "", trailerUnit: "",
+  fuelPlanId: "", fuelPlanOutdated: false,
 };

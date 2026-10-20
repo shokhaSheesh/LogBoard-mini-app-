@@ -8,6 +8,7 @@ import { getSendStatus, sendToDriver, type SendStatus } from "../lib/tgGroup";
 import { fmtDateTime } from "../lib/dates";
 import { ALL_STATUSES, STATUS_CONFIG, type Status } from "../lib/statuses";
 import { Sheet, SheetRow, StatusChip, statusColors, toast, TopBar } from "../components/ui";
+import { FuelPlanCard } from "../components/FuelPlan";
 
 // The map library is large; it loads only when a load with located stops is opened.
 const RouteMap = lazy(() => import("../components/RouteMap").then((m) => ({ default: m.RouteMap })));
@@ -154,6 +155,10 @@ export function LoadDetailPage() {
           {load.poNumber && <div><small>PO #</small><span className="ell" style={{ display: "block" }}>{load.poNumber}</span></div>}
           {load.otherNumber && <div><small>Other #</small><span className="ell" style={{ display: "block" }}>{load.otherNumber}</span></div>}
         </div>
+
+        {/* Where to buy diesel on this trip, and how much */}
+        <FuelPlanCard loadId={load.id} truckUnit={load.truckUnit} finished={load.status === "completed"}
+          outdatedPlanId={load.fuelPlanOutdated ? load.fuelPlanId : ""} />
 
         {/* Posting the trip to the driver's Telegram group. What goes is the load as it is
             stored now, so sending again after an edit sends the edit. */}
