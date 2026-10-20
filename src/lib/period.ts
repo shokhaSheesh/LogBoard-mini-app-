@@ -8,7 +8,7 @@ export type PeriodId = "week" | "lastWeek" | "month" | "lastMonth" | "year" | "a
 export const PERIODS: { id: PeriodId; label: string }[] = [
   { id: "week", label: "This week" }, { id: "lastWeek", label: "Last week" },
   { id: "month", label: "This month" }, { id: "lastMonth", label: "Last month" },
-  { id: "year", label: "This year" }, { id: "all", label: "All time" },
+  { id: "year", label: "This year" }, { id: "all", label: "All Time" },
 ];
 export const periodLabel = (id: PeriodId) => PERIODS.find((p) => p.id === id)?.label ?? "";
 

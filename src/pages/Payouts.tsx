@@ -85,8 +85,8 @@ export function Payouts({ head }: { head?: React.ReactNode }) {
         <div className="chips">
           <PeriodChip value={period} onPick={setPeriod} />
           <PickChip title="Dispatcher" value={dispatcher} on={!!dispatcher}
-            label={dispatchers.find((d) => d.id === dispatcher)?.name ?? "All dispatchers"}
-            options={[{ id: "", label: "All dispatchers" }, ...dispatchers.map((d) => ({ id: d.id, label: d.name }))]}
+            label={dispatchers.find((d) => d.id === dispatcher)?.name ?? "All Dispatchers"}
+            options={[{ id: "", label: "All Dispatchers" }, ...dispatchers.map((d) => ({ id: d.id, label: d.name }))]}
             onPick={setDispatcher} />
         </div>
       </div>
