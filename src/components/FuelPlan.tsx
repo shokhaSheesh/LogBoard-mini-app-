@@ -139,7 +139,7 @@ export function FuelPlanCard({ loadId, truckUnit, finished, outdatedPlanId }: {
             <div><b style={{ fontSize: 18 }}>{plan.totals.stops}</b><div className="sub">stop{plan.totals.stops === 1 ? "" : "s"}</div></div>
             <div><b style={{ fontSize: 18 }}>{gal(plan.totals.gallons)}</b><div className="sub">gallons</div></div>
             <div>
-              <b style={{ fontSize: 18, color: savings && savings > 0 ? "var(--pine)" : undefined }}>{savings != null ? `$${Math.round(savings).toLocaleString("en-US")}` : "—"}</b>
+              <b style={{ fontSize: 18, color: savings && savings > 0 ? "var(--pine)" : undefined }}>{savings != null ? `$${Math.round(Math.max(0, savings)).toLocaleString("en-US")}` : "—"}</b>
               <div className="sub">saved</div>
             </div>
           </div>
