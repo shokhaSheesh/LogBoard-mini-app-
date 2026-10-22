@@ -43,6 +43,21 @@ function byStatus(status: number | undefined, fallback: string): string {
   }
 }
 
+/**
+ * The line for a sign-in the server refused for too many tries (429): how long to wait, from
+ * the seconds it gave, else "a few minutes". "" for any other failure.
+ */
+export function tooManyAttempts(e: unknown): string {
+  const meta = e as { status?: number; retryAfter?: number };
+  if (meta?.status !== 429) return "";
+  const s = meta.retryAfter;
+  const wait = !s ? "a few minutes"
+    : s < 60 ? `${Math.ceil(s)} seconds`
+    : s < 3600 ? `${Math.ceil(s / 60)} minute${Math.ceil(s / 60) === 1 ? "" : "s"}`
+    : `${Math.ceil(s / 3600)} hour${Math.ceil(s / 3600) === 1 ? "" : "s"}`;
+  return `Too many sign-in attempts. Try again in ${wait}.`;
+}
+
 /** The server's message when it is one, otherwise the plain line for that kind of failure. */
 export function humanize(message: string, status?: number, fallback = GENERIC): string {
   const text = (message ?? "").trim();

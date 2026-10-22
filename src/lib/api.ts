@@ -28,6 +28,9 @@ export function clearSession(): void { store.del(TOKEN); store.del(COMPANY); }
 export class ApiError extends Error {
   code?: string;
   status?: number;
+  // On a 429, the seconds to wait before trying again, when the server said (Retry-After, or
+  // error.retry_after in the body).
+  retryAfter?: number;
   constructor(message: string, code?: string, status?: number) {
     super(humanize(message, status));
     this.name = "ApiError";
@@ -77,6 +80,10 @@ async function request<T>(method: string, path: string, body?: unknown, form?: F
 
   const said = json?.error?.message;
   const err = new ApiError(typeof said === "string" ? said : "", json?.error?.code, res.status);
+  if (res.status === 429) {
+    const wait = Number(res.headers.get("Retry-After") ?? json?.error?.retry_after);
+    if (Number.isFinite(wait) && wait > 0) err.retryAfter = wait;
+  }
   // A wrong password is a 401 too, but it is a form error, not an ended session.
   // Nor is Telegram failing to vouch for someone who isn't signed in yet.
   if (res.status === 401 && err.code !== "invalid_credentials" && err.code !== "invalid_telegram_data") {

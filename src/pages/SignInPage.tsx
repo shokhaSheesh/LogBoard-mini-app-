@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { BRAND_NAME, BrandMark } from "../components/Brand";
 import { useAuth } from "../lib/auth";
-import { friendlyError } from "../lib/errors";
+import { friendlyError, tooManyAttempts } from "../lib/errors";
 import { haptic, inTelegram } from "../lib/telegram";
 
 // The same sign-in as the web: a login and a password.
@@ -25,7 +25,7 @@ export function SignInPage() {
       haptic.success();
     } catch (err) {
       haptic.error();
-      setError(friendlyError(err, "Couldn't sign you in. Try again."));
+      setError(tooManyAttempts(err) || friendlyError(err, "Couldn't sign you in. Try again."));
       setBusy(false);
     }
   };
