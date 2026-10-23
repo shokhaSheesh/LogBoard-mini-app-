@@ -82,7 +82,9 @@ export async function suggestAddresses(input: string): Promise<PlaceSuggestion[]
         resolve: async () => {
           try {
             const place = p.toPlace();
-            await place.fetchFields({ fields: ["addressComponents", "formattedAddress", "location", "displayName", "types"] });
+            // Essentials fields only. A place's name (displayName) would bill every pick at the
+            // Pro price, about 3× — and a rate con's stop always has its street address.
+            await place.fetchFields({ fields: ["addressComponents", "formattedAddress", "location"] });
             if (session === used) session = null; // the pick closes the session
             return toAddress(place);
           } catch { return null; }
@@ -94,14 +96,48 @@ export async function suggestAddresses(input: string): Promise<PlaceSuggestion[]
   }
 }
 
-/** The point for a line of address text. Null when it can't be found or Google isn't available. */
-export async function locateText(text: string): Promise<{ lat: number; lng: number } | null> {
+type LatLngLiteral = { lat: number; lng: number };
+
+/**
+ * The point for a line of address text, found in the background (no suggestion was picked:
+ * a rate con's stops, a driver's location, an older stop). Null when Google can't place it or
+ * isn't available, and the caller falls back to OpenStreetMap.
+ *
+ * Geocoding first: made for addresses, about a sixth of Text Search's price, and it says how
+ * sure it is. Its answer is taken when the whole text matched and it is the building (or a
+ * point on its stretch of street), or when the text has no house number to find (a city, a
+ * zip). Otherwise Text Search is asked once, as before; an approximate geocode is kept only
+ * when that finds nothing either.
+ */
+export async function locateText(text: string): Promise<LatLngLiteral | null> {
   const lib = await load();
   if (!lib) return null;
+  const geo = await geocode(text);
+  if (geo && !geo.partial && (geo.precise || !/^\s*\d/.test(text))) return geo.at;
   try {
     const { places } = await lib.Place.searchByText({ textQuery: text, fields: ["location"], region: "us", maxResultCount: 1 });
     const at = places?.[0]?.location;
-    return at ? { lat: at.lat(), lng: at.lng() } : null;
+    if (at) return { lat: at.lat(), lng: at.lng() };
+  } catch { /* fall through to what geocoding gave */ }
+  return geo?.at ?? null;
+}
+
+// Google's geocoder on the text: the first result's point, whether it is the building itself
+// (ROOFTOP) or interpolated along its block (RANGE_INTERPOLATED) rather than the middle of a
+// street, town or zip, and whether only part of the text matched. Null on no result or error.
+async function geocode(text: string): Promise<{ at: LatLngLiteral; precise: boolean; partial: boolean } | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { Geocoder } = await (window as any).google.maps.importLibrary("geocoding");
+    const { results } = await new Geocoder().geocode({ address: text, region: "us", componentRestrictions: { country: "US" } });
+    const r = results?.[0];
+    if (!r) return null;
+    const type = r.geometry?.location_type;
+    return {
+      at: { lat: r.geometry.location.lat(), lng: r.geometry.location.lng() },
+      precise: type === "ROOFTOP" || type === "RANGE_INTERPOLATED",
+      partial: !!r.partial_match,
+    };
   } catch {
     return null;
   }
@@ -131,11 +167,9 @@ function toAddress(place: any): PlaceAddress | null {
   const city = (stateAt > 0 ? tokens[stateAt - 1] : "") || part("locality") || part("sublocality") || part("postal_town") || part("administrative_area_level_3") || part("neighborhood");
   if (!city || !state) return null;
 
-  // A street address when there is one; for a named place without a number (a yard, a
-  // terminal) its name; for a bare city, nothing.
+  // The street address: its number and road; nothing for a bare city or zip.
   const number = part("street_number"), road = part("route", true);
-  const isCity = (place.types ?? []).some((t: string) => t === "locality" || t === "postal_code" || t.startsWith("administrative_area"));
-  const street = [number, road].filter(Boolean).join(" ") || (isCity ? "" : (place.displayName ?? ""));
+  const street = [number, road].filter(Boolean).join(" ");
 
   return { street: street === city ? "" : street, city, state, zip: part("postal_code"), lat: at.lat(), lng: at.lng() };
 }
