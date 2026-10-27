@@ -1,9 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
-import { Building2, Check, ChevronRight, LogOut, Moon, ReceiptText, Send, Sun, Truck } from "lucide-react";
+import { Building2, Check, ChevronRight, LogOut, Moon, Send, Sun, Truck } from "lucide-react";
 import { can, useAuth, type Company } from "../lib/auth";
-import { getBilling, getFleetCounts, listInvoices, type Billing } from "../lib/billing";
-import { fmtDate } from "../lib/dates";
+import { getFleetCounts } from "../lib/fleet";
 import { friendlyError } from "../lib/errors";
 import { currentScheme, haptic, inTelegram, onScheme, setScheme } from "../lib/telegram";
 import { SlideToConfirm } from "../components/SlideToConfirm";
@@ -12,31 +11,25 @@ import { Sheet, toast } from "../components/ui";
 const ROLE: Record<string, string> = { owner: "Owner", dispatcher: "Dispatcher", updater: "Updater" };
 const initialsOf = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
 
-// The Profile tab: who is signed in, the company's plan (for its owner), the company and
-// its fleet, and the way out.
+// The Profile tab: who is signed in, the company and its fleet, and the way out.
 export function ProfilePage() {
   const { user, companies, companyId, linked, switchCompany, logout } = useAuth();
   const navigate = useNavigate();
   const [picking, setPicking]     = useState(false);
   const [switching, setSwitching] = useState("");
   const [leaving, setLeaving]     = useState(false);
-  const [billing, setBilling]     = useState<Billing | null>(null);
   const [fleet, setFleet]         = useState<{ trucks: number; trailers: number } | null>(null);
-  const [invoices, setInvoices]   = useState<number | null>(null);
 
   const scheme = useSyncExternalStore(onScheme, currentScheme);
 
-  const isOwner = user?.role === "owner";
   const seesFleet = can(user, "equipments");
   // All extras on this page: if one can't be read, its part simply isn't shown.
   useEffect(() => {
     let stale = false;
-    setBilling(null); setFleet(null); setInvoices(null);
-    if (isOwner && companyId) getBilling(companyId).then((b) => { if (!stale) setBilling(b); }).catch(() => {});
-    if (isOwner && companyId) listInvoices(companyId).then((r) => { if (!stale) setInvoices(r.length); }).catch(() => {});
+    setFleet(null);
     if (seesFleet && companyId) getFleetCounts().then((f) => { if (!stale) setFleet(f); }).catch(() => {});
     return () => { stale = true; };
-  }, [isOwner, seesFleet, companyId]);
+  }, [seesFleet, companyId]);
 
   if (!user) return null;
   const company = companies.find((c) => c.id === companyId);
@@ -56,8 +49,6 @@ export function ProfilePage() {
     }
   };
 
-  const used = billing?.driversUsed ?? 0, limit = billing?.driversLimit ?? null;
-
   return (
     <div className="scroll">
       <div className="who">
@@ -67,18 +58,6 @@ export function ProfilePage() {
           <div className="sub ell">{[ROLE[user.role] ?? user.role, user.login || user.email].filter(Boolean).join(" · ")}</div>
         </div>
       </div>
-
-      {/* The plan, for the owner: what it is, how much of it is used, when it runs out. */}
-      {billing && (
-        <div className="plan-card">
-          <div><small>Plan</small><b>{billing.plan || "No plan"}</b></div>
-          {limit != null && limit > 0 && <div className="plan-bar"><i style={{ width: `${Math.min(100, (used / limit) * 100)}%` }} /></div>}
-          <div className="row">
-            <span>{limit != null ? `${used} of ${limit} drivers` : `${used} ${used === 1 ? "driver" : "drivers"} · no limit`}</span>
-            {billing.renewsOn && <span>{billing.daysLeft != null && billing.daysLeft <= 7 ? `${Math.max(0, billing.daysLeft)} ${billing.daysLeft === 1 ? "day" : "days"} left` : `Until ${fmtDate(billing.renewsOn)}`}</span>}
-          </div>
-        </div>
-      )}
 
       <div className="prows">
         {canSwitch ? (
@@ -99,12 +78,6 @@ export function ProfilePage() {
               {fleet && <span className="ell">{fleet.trucks} {fleet.trucks === 1 ? "truck" : "trucks"} · {fleet.trailers} {fleet.trailers === 1 ? "trailer" : "trailers"}</span>}
               <ChevronRight size={15} />
             </span>
-          </button>
-        )}
-        {isOwner && companyId && (
-          <button onClick={() => { haptic.tap(); navigate("/profile/invoices"); }}>
-            <span className="picon"><ReceiptText size={16} /></span><span className="ptitle">Invoices</span>
-            <span className="pvalue">{invoices != null && <span>{invoices}</span>}<ChevronRight size={15} /></span>
           </button>
         )}
         {/* Inside Telegram, a signed-in account is tied to this Telegram account so the app
@@ -140,7 +113,6 @@ export function ProfilePage() {
               <span className="co-mark" style={c.color ? { background: `color-mix(in srgb, ${c.color} 18%, transparent)`, color: c.color } : undefined}>{c.initials || initialsOf(c.name)}</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span className="ell" style={{ display: "block", fontWeight: 600 }}>{c.name}</span>
-                {c.plan && <span className="sub">{c.plan} plan</span>}
               </span>
               {switching === c.id ? <span className="spinner" style={{ color: "var(--muted)" }} /> : c.id === companyId && <Check size={18} style={{ color: "var(--pine)" }} />}
             </button>

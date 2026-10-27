@@ -11,13 +11,13 @@ export interface AuthUser {
   full_name: string;
   company_id: string;
   // The company the caller is acting as; absent when none is resolved yet.
-  company?: { id: string; name: string; initials: string; color: string; plan: string; week_start_day: number; mc?: string };
+  company?: { id: string; name: string; initials: string; color: string; week_start_day: number; mc?: string };
   must_change_password: boolean;
   // "<module>.<action>" keys for the active company — what decides which tabs show.
   permissions: string[];
 }
 
-export interface Company { id: string; name: string; initials: string; color: string; plan: string }
+export interface Company { id: string; name: string; initials: string; color: string }
 
 interface AuthState {
   user: AuthUser | null;
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       if (me.company_id) setCompanyId(me.company_id);
       setActive(me.company_id);
-      setCompanies(me.company ? [{ id: me.company.id, name: me.company.name, initials: me.company.initials, color: me.company.color, plan: me.company.plan }] : []);
+      setCompanies(me.company ? [{ id: me.company.id, name: me.company.name, initials: me.company.initials, color: me.company.color }] : []);
     }
     setUser(me);
   }, []);

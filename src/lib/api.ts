@@ -49,6 +49,22 @@ export function onSessionExpired(fn: Listener): () => void {
   return () => expiredListeners.delete(fn);
 }
 
+// The company gate: every board route answers 403 company_suspended once an admin closes
+// the company (Suspended or Pending), or company_unavailable when it can't be found or read.
+// Reads are refused too, so no screen can work; the shell listens here and shows why
+// instead of a screen full of failed loads.
+export type CompanyClosed = "company_suspended" | "company_unavailable";
+const closedListeners = new Set<(code: CompanyClosed) => void>();
+export function onCompanyClosed(fn: (code: CompanyClosed) => void): () => void {
+  closedListeners.add(fn);
+  return () => closedListeners.delete(fn);
+}
+function announceClosed(err: ApiError): void {
+  if (err.status === 403 && (err.code === "company_suspended" || err.code === "company_unavailable")) {
+    closedListeners.forEach((fn) => fn(err.code as CompanyClosed));
+  }
+}
+
 // How many requests are out right now. Pull-to-refresh watches this to know when the
 // screen it refreshed has finished loading.
 let inFlight = 0;
@@ -90,6 +106,7 @@ async function request<T>(method: string, path: string, body?: unknown, form?: F
     clearSession();
     expiredListeners.forEach((fn) => fn());
   }
+  announceClosed(err);
   throw err;
 }
 
@@ -111,28 +128,11 @@ async function list<T>(path: string, params: Record<string, string | number | un
     const said = json?.error?.message;
     const err = new ApiError(typeof said === "string" ? said : "", json?.error?.code, res.status);
     if (res.status === 401) { clearSession(); expiredListeners.forEach((fn) => fn()); }
+    announceClosed(err);
     throw err;
   }
   const items: T[] = Array.isArray(json.data) ? json.data : [];
   return { items, total: json.meta?.total ?? items.length, totals: json.totals ?? {} };
-}
-
-// A file the server streams behind the same sign-in as everything else (an invoice PDF).
-// A plain link can't carry the token, so it is fetched here and handed over as a blob.
-async function blob(path: string): Promise<Blob> {
-  const headers: Record<string, string> = {};
-  const token = getToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const company = getCompanyId();
-  if (company) headers["X-Company-ID"] = company;
-  const res = await fetch(`${BASE}${path}`, { headers });
-  if (!res.ok) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const json: any = await res.json().catch(() => ({}));
-    const said = json?.error?.message;
-    throw new ApiError(typeof said === "string" ? said : "", json?.error?.code, res.status);
-  }
-  return res.blob();
 }
 
 const upload = <T>(path: string, file: File): Promise<T> => {
@@ -143,7 +143,6 @@ const upload = <T>(path: string, file: File): Promise<T> => {
 
 export const api = {
   list:  <T>(path: string, params?: Record<string, string | number | undefined>) => tracked(list<T>(path, params)),
-  blob:  (path: string) => tracked(blob(path)),
   get:   <T>(path: string) => tracked(request<T>("GET", path)),
   /** A read made for a company other than the active one. */
   getAs: <T>(path: string, companyId: string) => tracked(request<T>("GET", path, undefined, undefined, companyId)),
